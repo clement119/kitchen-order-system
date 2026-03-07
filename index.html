@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kitchen Order System</title>
+  <link rel="stylesheet" href="libs/flatpickr.min.css" />
+  <style>
+    /* ─── Reset & Variables ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fffbf5;
+      --surface: #ffffff;
+      --surface2: #fdf6ec;
+      --border: #e8d5b0;
+      --border2: #f0e4cc;
+      --accent: #d97706;
+      --accent-light: #fef3c7;
+      --accent-dark: #b45309;
+      --text: #44403c;
+      --text-muted: #a8967c;
+      --text-light: #c4a97a;
+      --success: #059669;
+      --danger: #dc2626;
+      --info: #2563eb;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --nav-w: 64px;
+      --header-h: 60px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ─── App Shell ─── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ─── Header ─── */
+    #header {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      z-index: 10;
+      gap: 12px;
+    }
+    #header-left { display: flex; align-items: center; gap: 16px; }
+    #app-name {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 17px; font-weight: 900; color: var(--accent-dark);
+      letter-spacing: -0.3px; white-space: nowrap;
+    }
+    #app-name svg { width: 22px; height: 22px; flex-shrink: 0; }
+    #header-divider {
+      width: 1px; height: 22px; background: var(--border); flex-shrink: 0;
+    }
+    #greeting {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    #datetime {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+
+    /* ─── Body Layout ─── */
+    #body-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ─── Sidebar Nav ─── */
+    #sidebar {
+      width: var(--nav-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 0;
+      gap: 8px;
+      flex-shrink: 0;
+      z-index: 5;
+    }
+    .nav-btn {
+      width: 44px; height: 44px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      color: var(--text-muted);
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+    }
+    .nav-btn:hover { background: var(--surface2); color: var(--accent); }
+    .nav-btn.active { background: var(--accent-light); color: var(--accent); }
+    .nav-btn svg { width: 20px; height: 20px; }
+    .nav-btn .nav-label { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; }
+    .nav-btn[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: 52px;
+      top: 50%; transform: translateY(-50%);
+      background: var(--text);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      font-size: 12px;
+      z-index: 100;
+    }
+
+    /* ─── Content Area ─── */
+    #content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ─── Summary View ─── */
+    #summary-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .view-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .view-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .view-actions { display: flex; gap: 8px; align-items: center; }
+
+    .summary-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+
+    /* Date group header */
+    .date-group { margin-bottom: 28px; }
+    .date-group-label {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    /* Meal block */
+    .meal-block { margin-bottom: 16px; }
+    .meal-block-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .meal-label {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .meal-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .meal-report-btn {
+      margin-left: auto;
+      font-size: 11px;
+    }
+
+    /* Order row */
+    .order-row {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.15s;
+    }
+    .order-row:hover { border-color: var(--accent); }
+    .order-room {
+      font-weight: 800;
+      font-size: 13px;
+      min-width: 70px;
+      color: var(--accent-dark);
+    }
+    .order-pax-badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 20px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .order-items-preview {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .order-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+    .empty-state svg { width: 48px; height: 48px; opacity: 0.35; }
+    .empty-state p { font-size: 15px; font-weight: 600; }
+    .empty-state span { font-size: 13px; }
+
+    /* Daily report footer */
+    .daily-report-bar {
+      padding: 12px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* ─── Create View ─── */
+    #create-view {
+      display: flex;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Left menu panel */
+    #menu-panel {
+      width: 300px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .menu-panel-header {
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .menu-panel-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .search-wrap { position: relative; }
+    .search-wrap svg {
+      position: absolute;
+      left: 9px; top: 50%;
+      transform: translateY(-50%);
+      width: 14px; height: 14px;
+      color: var(--text-light);
+    }
+    #menu-search {
+      width: 100%;
+      padding: 7px 10px 7px 30px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+    }
+    #menu-search:focus { border-color: var(--accent); }
+
+    /* Category tabs */
+    .cat-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px 14px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border2);
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .cat-tabs::-webkit-scrollbar { display: none; }
+    .cat-tab {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .cat-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .cat-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* Menu item list */
+    #menu-items-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+    }
+    .menu-item-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      cursor: grab;
+      transition: all 0.15s;
+      margin-bottom: 4px;
+      background: var(--surface2);
+      user-select: none;
+    }
+    .menu-item-card:hover { border-color: var(--accent); background: var(--accent-light); }
+    .menu-item-card.in-order { border-color: var(--accent); background: var(--accent-light); }
+    .menu-item-card:active { cursor: grabbing; }
+    .drag-handle {
+      color: var(--text-light);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .drag-handle svg { width: 14px; height: 14px; }
+    .menu-item-info { flex: 1; min-width: 0; }
+    .menu-item-name { font-size: 13px; font-weight: 700; color: var(--text); }
+    .menu-item-desc { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tag-pills { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+    .tag-pill {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 20px;
+      font-weight: 700;
+      border: 1px solid;
+    }
+    .tag-pill.halal { color: #059669; border-color: #a7f3d0; background: #ecfdf5; }
+    .tag-pill.soft-diet { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
+    .tag-pill.diabetic-ok { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+    .tag-pill.low-sodium { color: #0891b2; border-color: #a5f3fc; background: #ecfeff; }
+    .tag-pill.spicy { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+    .tag-pill.default { color: var(--text-muted); border-color: var(--border); background: var(--surface); }
+
+    .menu-item-add {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-light);
+      flex-shrink: 0;
+      margin-top: 1px;
+      transition: all 0.15s;
+    }
+    .menu-item-card:hover .menu-item-add { border-color: var(--accent); color: var(--accent); }
+    .menu-item-card.in-order .menu-item-add { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .menu-item-add svg { width: 12px; height: 12px; }
+
+    /* Right order form */
+    #order-form-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .order-form-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .order-form-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+    }
+    .form-row-full { grid-column: 1 / -1; }
+    .form-field { display: flex; flex-direction: column; gap: 4px; }
+    .form-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .form-input, .form-select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(217,119,6,0.10); }
+
+    /* Form row with drum + date inline */
+    .form-time-date-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .form-time-block { flex: 1; }
+    .form-date-block { flex: 1; }
+
+    /* Drum picker */
+    .drum-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .drum-col-wrap { display: flex; flex-direction: column; align-items: center; gap: 0; }
+    .drum-arrow-btn {
+      width: 36px; height: 22px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      font-size: 11px;
+    }
+    .drum-arrow-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .drum-viewport {
+      width: 52px;
+      height: 108px;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      position: relative;
+    }
+    .drum-viewport::-webkit-scrollbar { display: none; }
+    .drum-pad { height: 36px; flex-shrink: 0; }
+    .drum-item {
+      height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      scroll-snap-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-light);
+      cursor: pointer;
+      transition: color 0.1s, font-size 0.1s;
+      user-select: none;
+    }
+    .drum-item.active {
+      color: var(--accent);
+      font-size: 20px;
+    }
+    .drum-item:hover { color: var(--accent-dark); }
+    .drum-sep {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      margin-top: 22px;
+    }
+
+    /* Drop zone */
+    #drop-zone-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .drop-zone-label {
+      padding: 10px 20px 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+    #order-drop-zone {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 12px;
+      min-height: 80px;
+    }
+    #order-drop-zone.drag-over {
+      background: var(--accent-light);
+      border-radius: var(--radius);
+    }
+    .drop-empty {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 120px;
+      gap: 6px;
+      color: var(--text-light);
+      font-size: 13px;
+      margin: 4px 0;
+    }
+    .drop-empty svg { width: 28px; height: 28px; opacity: 0.5; }
+
+    /* Order item card */
+    .order-item-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px 8px 12px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .order-item-card:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(217,119,6,0.10); }
+    .order-item-drag { cursor: grab; color: var(--text-light); margin-top: 2px; flex-shrink: 0; }
+    .order-item-drag svg { width: 13px; height: 13px; }
+    .order-item-body { flex: 1; min-width: 0; }
+    .order-item-name { font-size: 13px; font-weight: 700; color: var(--text); }
+    .order-item-note {
+      width: 100%;
+      margin-top: 5px;
+      padding: 5px 8px;
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+      resize: none;
+    }
+    .order-item-note:focus { border-color: var(--accent); }
+    .order-item-note::placeholder { color: var(--text-light); }
+    .order-item-remove {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-light);
+      flex-shrink: 0;
+      transition: color 0.15s, background 0.15s;
+    }
+    .order-item-remove:hover { color: var(--danger); background: #fef2f2; }
+    .order-item-remove svg { width: 14px; height: 14px; }
+    .item-qty-controls {
+      display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-top: 1px;
+    }
+    .qty-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      cursor: pointer; font-size: 15px; font-weight: 700; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-family: inherit; transition: all 0.15s;
+    }
+    .qty-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .qty-display {
+      font-size: 13px; font-weight: 800; min-width: 18px; text-align: center; color: var(--text);
+    }
+
+    /* Order form footer */
+    #order-form-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Buttons ─── */
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid transparent;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 6px rgba(217,119,6,0.25); }
+    .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); box-shadow: 0 3px 10px rgba(180,83,9,0.30); }
+    .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border-color: transparent; }
+    .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+    .btn-danger { background: transparent; color: var(--danger); border-color: #fecaca; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-icon {
+      padding: 5px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border2);
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .btn-icon:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .btn-icon.danger:hover { border-color: #fecaca; color: var(--danger); background: #fef2f2; }
+    .btn-icon svg { width: 13px; height: 13px; }
+
+    /* ─── Modal ─── */
+    #modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    #modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      width: 100%;
+      max-width: 640px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 16px; font-weight: 800; }
+    .modal-close {
+      width: 30px; height: 30px;
+      border: none; background: transparent;
+      cursor: pointer; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .modal-close:hover { background: var(--surface2); }
+    .modal-close svg { width: 16px; height: 16px; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 22px; }
+    .modal-footer {
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Visual Order Template ─── */
+    .order-template {
+      font-family: 'Nunito', system-ui, sans-serif;
+      background: #fff;
+      border: 1.5px solid #d4c4a0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .ot-head {
+      background: var(--accent);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ot-brand {
+      display: flex; align-items: center; gap: 9px;
+    }
+    .ot-brand svg { width: 22px; height: 22px; stroke: #fff; }
+    .ot-brand-name {
+      font-size: 16px; font-weight: 900; color: #fff; letter-spacing: -0.3px;
+    }
+    .ot-brand-sub { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 600; margin-top: 1px; }
+    .ot-slip-label {
+      font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.80);
+      text-transform: uppercase; letter-spacing: 0.08em; text-align: right;
+    }
+    .ot-meta {
+      display: grid; grid-template-columns: 1fr 1fr;
+      border-bottom: 1.5px solid #e8d5b0;
+    }
+    .ot-meta-cell {
+      padding: 11px 18px;
+      border-right: 1px solid #e8d5b0;
+      border-bottom: 1px solid #e8d5b0;
+    }
+    .ot-meta-cell:nth-child(even) { border-right: none; }
+    .ot-meta-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .ot-meta-label {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #a8967c; margin-bottom: 3px;
+    }
+    .ot-meta-value { font-size: 14px; font-weight: 700; color: #44403c; }
+    .ot-items-section { padding: 0 0 4px; }
+    .ot-items-title {
+      padding: 10px 18px 6px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #a8967c;
+      border-bottom: 1px solid #e8d5b0;
+    }
+    .ot-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .ot-table th {
+      padding: 7px 18px; background: #fdf6ec;
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #a8967c; text-align: left;
+      border-bottom: 1px solid #e8d5b0;
+    }
+    .ot-table th.ot-col-no, .ot-table td.ot-col-no { width: 32px; text-align: center; }
+    .ot-table th.ot-col-qty, .ot-table td.ot-col-qty { width: 40px; text-align: center; }
+    .ot-table td {
+      padding: 8px 18px; border-bottom: 1px solid #f0e4cc;
+      color: #44403c; vertical-align: top;
+    }
+    .ot-table tr:last-child td { border-bottom: none; }
+    .ot-table td.ot-col-no { font-weight: 700; color: #a8967c; }
+    .ot-td-item { font-weight: 700; }
+    .ot-td-note { font-size: 12px; color: #78716c; font-style: italic; }
+    .ot-td-qty { font-weight: 800; color: #d97706; }
+    .ot-foot {
+      border-top: 1.5px solid #e8d5b0;
+      padding: 10px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: #fdf6ec;
+    }
+    .ot-generated { font-size: 11px; color: #a8967c; }
+    .ot-sig { font-size: 11px; color: #78716c; font-weight: 600; }
+
+    /* Legacy text preview (daily report) */
+    .order-preview {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      color: var(--text);
+    }
+
+    /* Toast notification */
+    #toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 2000;
+      transition: transform 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Flatpickr custom override */
+    .flatpickr-calendar { font-family: inherit; }
+    .flatpickr-input {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+      width: 100%;
+      cursor: pointer;
+    }
+    .flatpickr-input:focus { border-color: var(--accent); }
+
+    /* Sortable ghost */
+    .sortable-ghost { opacity: 0.35; }
+    .sortable-chosen { box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+
+    /* ─── Wizard Steps ─── */
+    .wizard-section {
+      padding: 8px 14px 8px;
+      border-bottom: 1px solid var(--border2);
+      flex-shrink: 0;
+    }
+    .wizard-step-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .wizard-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .wizard-btn {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .wizard-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .wizard-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,0.30); }
+
+    /* ─── Dish Groups ─── */
+    .dish-group {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border2);
+      transition: background 0.1s;
+    }
+    .dish-group:hover { background: var(--surface2); }
+    .dish-group-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .choice-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+    .choice-pill {
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .choice-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .choice-pill.in-order { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .choice-l1-group { margin-bottom: 5px; }
+    .choice-l1-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .menu-no-selection {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-light);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ─── Print styles ─── */
+    #print-slot { display: none; }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body > * { display: none !important; }
+      #print-slot {
+        display: block !important;
+        padding: 24px;
+        font-family: 'Nunito', system-ui, sans-serif;
+      }
+      #print-slot .order-template { border: 1.5px solid #d4c4a0 !important; }
+      #print-slot .ot-head { background: #d97706 !important; }
+      #print-slot .ot-table th { background: #fdf6ec !important; }
+      #print-slot .ot-foot { background: #fdf6ec !important; }
+      #toast { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Header -->
+  <header id="header">
+    <div id="header-left">
+      <div id="app-name">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+        </svg>
+        Kitchen Order
+      </div>
+      <div id="header-divider"></div>
+      <div id="greeting">Good Morning</div>
+    </div>
+    <div id="datetime"></div>
+  </header>
+
+  <!-- Body -->
+  <div id="body-layout">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <button class="nav-btn active" data-view="summary" title="Order Summary" onclick="switchView('summary')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+        <span class="nav-label">Summary</span>
+      </button>
+      <button class="nav-btn" data-view="create" title="Create Order" onclick="switchView('create')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span class="nav-label">Order</span>
+      </button>
+    </nav>
+
+    <!-- Content -->
+    <main id="content"></main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay" role="dialog">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Order</span>
+      <button class="modal-close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- Print slot (populated by printOrder, visible only during print) -->
+<div id="print-slot"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="libs/xlsx.min.js"></script>
+<script src="libs/sortable.min.js"></script>
+<script src="libs/flatpickr.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════
+const SERVING_ORDER = ['Breakfast', 'Brunch', 'Lunch', 'Tea Time', 'Dinner', 'Supper'];
+const STORAGE_KEY   = 'kitchen_order_app_v1';
+const ITEM_H        = 36; // drum item height px
+const TEMPLATE_FILE = 'menu-template.xlsx';
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+const S = {
+  view: 'summary',
+  menuItems: [],          // new format: [{mealPeriod,week,day,dish,l1,l2}]
+  orders: [],             // [{id, room, pax, date, servingTime, orderTime, items[{name,choice1,choice2,note}]}]
+  editingId: null,
+
+  // draft (create view)
+  draft: {
+    room: '',
+    pax: 1,
+    date: todayStr(),
+    servingTime: 'Breakfast',
+    orderTime: { h: '07', m: '30' },
+    items: [],            // [{name, choice1, choice2, note}]
+  },
+
+  // wizard state (menu navigation)
+  wizard: { mealPeriod: null, week: null, day: null },
+
+  // drum pickers
+  drums: { h: null, m: null },
+
+  // sortable instances
+  sortOrderList: null,
+};
+
+// ═══════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0;
+    return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(dateStr, opts={}) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const shortMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if (opts.short) {
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = String(d.getFullYear()).slice(2);
+    return `${dd}/${mm}/${yy}`;
+  }
+  if (opts.medium) return `${days[d.getDay()]}, ${d.getDate()} ${shortMonths[d.getMonth()]} ${d.getFullYear()}`;
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function toast(msg, duration=2400) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function tagClass(tag) {
+  const t = tag.toLowerCase().replace(/\s/g,'-');
+  if (t.includes('halal')) return 'halal';
+  if (t.includes('soft')) return 'soft-diet';
+  if (t.includes('diabetic')) return 'diabetic-ok';
+  if (t.includes('sodium')) return 'low-sodium';
+  if (t.includes('spicy')) return 'spicy';
+  return 'default';
+}
+
+function itemDisplayName(item) {
+  const parts = [item.choice1, item.choice2].filter(Boolean);
+  return parts.length ? `${item.name} (${parts.join(', ')})` : item.name;
+}
+
+// ═══════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════
+function saveStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ menuItems: S.menuItems, orders: S.orders }));
+}
+
+function loadStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.menuItems)) {
+      // Migration check: if stored items use old format (no mealPeriod key), discard them
+      if (data.menuItems.length > 0 && !('mealPeriod' in data.menuItems[0])) {
+        S.menuItems = []; // clear stale old-format menu
+      } else {
+        S.menuItems = data.menuItems;
+      }
+    }
+    if (Array.isArray(data.orders)) S.orders = data.orders;
+  } catch(e) { /* ignore */ }
+}
+
+// ═══════════════════════════════════════
+//  HEADER CLOCK
+// ═══════════════════════════════════════
+function startClock() {
+  function tick() {
+    const now  = new Date();
+    const h    = now.getHours();
+    const gr   = h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening';
+    document.getElementById('greeting').textContent = gr;
+
+    const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dayName = days[now.getDay()];
+    const dd  = String(now.getDate()).padStart(2,'0');
+    const mon = months[now.getMonth()];
+    const yr  = now.getFullYear();
+    const hh  = now.getHours() % 12 || 12;
+    const mm  = String(now.getMinutes()).padStart(2,'0');
+    const ap  = now.getHours() < 12 ? 'AM' : 'PM';
+    document.getElementById('datetime').innerHTML = `${dayName}, ${dd} ${mon} ${yr}<br>${hh}:${mm} ${ap}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ═══════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════
+function switchView(v) {
+  // Reset draft when going to create without editing
+  if (v === 'create' && !S.editingId) resetDraft();
+  S.view = v;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  renderContent();
+}
+
+// ═══════════════════════════════════════
+//  RENDER DISPATCHER
+// ═══════════════════════════════════════
+function renderContent() {
+  const el = document.getElementById('content');
+  if (S.view === 'summary') renderSummary(el);
+  else                      renderCreate(el);
+}
+
+// ═══════════════════════════════════════
+//  SUMMARY VIEW
+// ═══════════════════════════════════════
+function renderSummary(root) {
+  // Group orders by date
+  const byDate = {};
+  S.orders.forEach(o => {
+    if (!byDate[o.date]) byDate[o.date] = {};
+    if (!byDate[o.date][o.servingTime]) byDate[o.date][o.servingTime] = [];
+    byDate[o.date][o.servingTime].push(o);
+  });
+  const sortedDates = Object.keys(byDate).sort();
+
+  // Today for highlighting
+  const today = todayStr();
+  let dateGroupsHtml = '';
+  sortedDates.forEach(date => {
+    const byMeal = byDate[date];
+    const isToday = date === today;
+    let mealBlocksHtml = '';
+
+    SERVING_ORDER.forEach(mealName => {
+      if (!byMeal[mealName]) return;
+      const orders = byMeal[mealName];
+      const totalPax = orders.reduce((s,o) => s + (o.pax||1), 0);
+      // All serve-at times in this block (use earliest)
+      const times = [...new Set(orders.map(o=>o.orderTime))].join(', ');
+
+      let rowsHtml = '';
+      orders.forEach(o => {
+        const itemsPreview = o.items.map(i => itemDisplayName(i)).join(', ');
+        rowsHtml += `
+          <div class="order-row" style="cursor:pointer;" onclick="viewOrder('${o.id}')">
+            <div class="order-room">Room ${escHtml(o.room)}</div>
+            <div class="order-pax-badge">${o.pax||1} pax</div>
+            <div class="order-items-preview" title="${escHtml(itemsPreview)}">${escHtml(itemsPreview)}</div>
+            <div class="order-row-actions" onclick="event.stopPropagation()">
+              <button class="btn-icon" title="View / Print" onclick="viewOrder('${o.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+              <button class="btn-icon" title="Edit" onclick="editOrder('${o.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon" title="Duplicate" onclick="duplicateOrder('${o.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+              <button class="btn-icon danger" title="Delete" onclick="deleteOrder('${o.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </div>
+          </div>`;
+      });
+
+      mealBlocksHtml += `
+        <div class="meal-block">
+          <div class="meal-block-header">
+            <span class="meal-label">${escHtml(mealName)}</span>
+            <span class="meal-meta">${totalPax} pax &bull; ${escHtml(times)}</span>
+          </div>
+          ${rowsHtml}
+        </div>`;
+    });
+
+    dateGroupsHtml += `
+      <div class="date-group">
+        <div class="date-group-label">${isToday ? 'Today — ' : ''}${formatDate(date, {medium:true})}</div>
+        ${mealBlocksHtml}
+      </div>`;
+  });
+
+  const isEmpty = sortedDates.length === 0;
+
+  root.innerHTML = `
+    <div id="summary-view">
+      <div class="view-header">
+        <div class="view-title">Order Summary</div>
+        <div class="view-actions">
+          <button class="btn btn-secondary btn-sm" onclick="triggerMenuUpload()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Menu
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="downloadTemplate()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Template
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="newOrder()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Order
+          </button>
+        </div>
+      </div>
+
+      <div class="summary-body">
+        ${isEmpty ? `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <p>No orders yet</p>
+            <span>Click "Create Order" to get started</span>
+          </div>` : dateGroupsHtml}
+      </div>
+
+      ${!isEmpty ? `
+        <div class="daily-report-bar">
+          <button class="btn btn-secondary btn-sm" onclick="showDailyReport()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Generate Daily Report
+          </button>
+        </div>` : ''}
+    </div>`;
+
+  // Hidden file input
+  ensureFileInput();
+}
+
+// ═══════════════════════════════════════
+//  WIZARD SELECTION
+// ═══════════════════════════════════════
+function selectMealPeriod(mp) {
+  S.wizard.mealPeriod = mp;
+  S.wizard.week = mp === 'Breakfast' ? 'All Weeks' : null;
+  S.wizard.day  = mp === 'Breakfast' ? 'Daily'     : null;
+  S.draft.servingTime = mp; // auto-set serving time
+  renderContent();
+}
+
+function selectWizardWeek(wk) {
+  S.wizard.week = wk;
+  S.wizard.day  = null;
+  renderContent();
+}
+
+function selectWizardDay(day) {
+  S.wizard.day = day;
+  renderContent();
+}
+
+// ═══════════════════════════════════════
+//  DISH GROUP BUILDER
+// ═══════════════════════════════════════
+function buildDishGroups(rows) {
+  const groups = [];
+  const seen = new Set();
+  rows.forEach(row => {
+    if (seen.has(row.dish)) return;
+    seen.add(row.dish);
+    const dishRows = rows.filter(r => r.dish === row.dish);
+    const hasL1 = dishRows.some(r => r.l1);
+    if (!hasL1) {
+      groups.push({ dish: row.dish, l1Groups: null });
+    } else {
+      const hasL2 = dishRows.some(r => r.l2);
+      if (!hasL2) {
+        const l1Options = [...new Set(dishRows.map(r => r.l1).filter(Boolean))];
+        groups.push({ dish: row.dish, l1Groups: l1Options.map(l1 => ({ l1, l2Options: null })) });
+      } else {
+        const l1Set = [...new Set(dishRows.map(r => r.l1).filter(Boolean))];
+        const l1Groups = l1Set.map(l1 => ({
+          l1,
+          l2Options: dishRows.filter(r => r.l1 === l1 && r.l2).map(r => r.l2),
+        }));
+        groups.push({ dish: row.dish, l1Groups });
+      }
+    }
+  });
+  return groups;
+}
+
+function buildDishGroupsHtml(groups) {
+  if (!groups.length) return '<div class="menu-no-selection">No dishes found for this selection.</div>';
+  return groups.map(g => {
+    const { dish, l1Groups } = g;
+    const safeDish = escHtml(dish).replace(/'/g, '&#39;');
+    let pillsHtml = '';
+    if (!l1Groups) {
+      const count = S.draft.items.filter(i => i.name === dish && !i.choice1 && !i.choice2).length;
+      pillsHtml = `<div class="choice-pills">
+        <button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}',null,null)">
+          ${count ? `&#10003;${count > 1 ? ' \xd7' + count : ' Added'}` : '+ Add'}
+        </button></div>`;
+    } else {
+      const hasL2 = l1Groups.some(g => g.l2Options && g.l2Options.length);
+      if (!hasL2) {
+        pillsHtml = `<div class="choice-pills">` +
+          l1Groups.map(({ l1 }) => {
+            const safeL1 = escHtml(l1).replace(/'/g, '&#39;');
+            const count = S.draft.items.filter(i => i.name === dish && i.choice1 === l1 && !i.choice2).length;
+            const label = count ? `&#10003; ${escHtml(l1)}${count > 1 ? ' \xd7' + count : ''}` : escHtml(l1);
+            return `<button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}','${safeL1}',null)">${label}</button>`;
+          }).join('') + `</div>`;
+      } else {
+        pillsHtml = l1Groups.map(({ l1, l2Options }) => {
+          const safeL1 = escHtml(l1).replace(/'/g, '&#39;');
+          const l2Html = (l2Options || []).map(l2 => {
+            const safeL2 = escHtml(l2).replace(/'/g, '&#39;');
+            const count = S.draft.items.filter(i => i.name === dish && i.choice1 === l1 && i.choice2 === l2).length;
+            const label = count ? `&#10003; ${escHtml(l2)}${count > 1 ? ' \xd7' + count : ''}` : escHtml(l2);
+            return `<button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}','${safeL1}','${safeL2}')">${label}</button>`;
+          }).join('');
+          return `<div class="choice-l1-group">
+            <span class="choice-l1-label">${escHtml(l1)}</span>
+            <div class="choice-pills">${l2Html}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+    return `<div class="dish-group">
+      <div class="dish-group-name">${escHtml(dish)}</div>
+      ${pillsHtml}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  CREATE ORDER VIEW
+// ═══════════════════════════════════════
+function renderCreate(root) {
+  const d = S.draft;
+  const wiz = S.wizard;
+
+  // --- Wizard logic ---
+  const showStep2 = wiz.mealPeriod && wiz.mealPeriod !== 'Breakfast';
+  const showStep3 = showStep2 && wiz.week;
+  const showDishes = wiz.mealPeriod === 'Breakfast' || (wiz.week && wiz.day);
+
+  // --- Wizard HTML ---
+  const wizardHtml = `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 1 — Meal Period</div>
+      <div class="wizard-btns">
+        ${['Breakfast','Lunch','Dinner'].map(mp =>
+          `<button class="wizard-btn${wiz.mealPeriod===mp?' active':''}" onclick="selectMealPeriod('${mp}')">${mp}</button>`
+        ).join('')}
+      </div>
+    </div>
+    ${showStep2 ? `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 2 — Week</div>
+      <div class="wizard-btns">
+        ${['Week 1','Week 2','Week 3','Week 4'].map(wk =>
+          `<button class="wizard-btn${wiz.week===wk?' active':''}" onclick="selectWizardWeek('${wk}')">${wk}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}
+    ${showStep3 ? `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 3 — Day</div>
+      <div class="wizard-btns">
+        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day =>
+          `<button class="wizard-btn${wiz.day===day?' active':''}" onclick="selectWizardDay('${day}')">${day.slice(0,3)}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}`;
+
+  // --- Dish list HTML ---
+  let dishListHtml;
+  if (!showDishes) {
+    dishListHtml = `<div class="menu-no-selection">${wiz.mealPeriod
+      ? 'Select a week and day to see dishes.'
+      : 'Select a meal period above to begin.'}</div>`;
+  } else if (S.menuItems.length === 0) {
+    dishListHtml = `<div class="menu-no-selection">Upload <strong>Full_Menu_Consolidated.xlsx</strong> via the Upload Menu button to load the menu.</div>`;
+  } else {
+    const filtered = S.menuItems.filter(r =>
+      r.mealPeriod === wiz.mealPeriod && r.week === wiz.week && r.day === wiz.day
+    );
+    dishListHtml = filtered.length
+      ? buildDishGroupsHtml(buildDishGroups(filtered))
+      : `<div class="menu-no-selection">No dishes found for this selection.</div>`;
+  }
+
+  // --- Order items list ---
+  const orderItemsHtml = d.items.length === 0
+    ? `<div class="drop-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+        Select items from the menu to add them here
+      </div>`
+    : d.items.map((item, idx) => `
+        <div class="order-item-card" data-idx="${idx}">
+          <span class="order-item-drag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="17" r="1" fill="currentColor"/><circle cx="15" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="17" r="1" fill="currentColor"/></svg>
+          </span>
+          <div class="order-item-body">
+            <div class="order-item-name">${escHtml(itemDisplayName(item))}</div>
+            <textarea class="order-item-note" rows="1"
+              placeholder="Note: e.g. no salt, extra portion..."
+              oninput="updateItemNote(${idx}, this.value)">${escHtml(item.note||'')}</textarea>
+          </div>
+          <div class="item-qty-controls">
+            <button class="qty-btn" onclick="adjustQty(${idx}, -1)" title="Decrease">−</button>
+            <span class="qty-display">${item.qty || 1}</span>
+            <button class="qty-btn" onclick="adjustQty(${idx}, 1)" title="Increase">+</button>
+          </div>
+          <button class="order-item-remove" onclick="removeOrderItem(${idx})" title="Remove">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`
+      ).join('');
+
+  // --- Form options ---
+  const paxOptions = Array.from({length:20},(_,i)=>i+1)
+    .map(n => `<option value="${n}" ${d.pax===n?'selected':''}>${n} pax</option>`).join('');
+
+  const servingOptions = SERVING_ORDER
+    .map(s => `<option value="${s}" ${d.servingTime===s?'selected':''}>${s}</option>`).join('');
+
+  root.innerHTML = `
+    <div id="create-view">
+      <!-- Left: Menu Panel -->
+      <div id="menu-panel">
+        <div class="menu-panel-header">
+          <div class="menu-panel-title">Menu</div>
+        </div>
+        ${wizardHtml}
+        <div id="menu-items-list">${dishListHtml}</div>
+      </div>
+
+      <!-- Right: Order Form -->
+      <div id="order-form-area">
+        <div class="order-form-header">
+          <div class="order-form-title">${S.editingId ? 'Edit Order' : 'New Order'}</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Room / Table Number</label>
+              <input class="form-input" type="text" placeholder="e.g. 101, Ward B"
+                value="${escHtml(d.room)}"
+                oninput="S.draft.room=this.value;" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Number of Pax</label>
+              <select class="form-select" onchange="S.draft.pax=parseInt(this.value);">${paxOptions}</select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Serving Time</label>
+              <select class="form-select" onchange="S.draft.servingTime=this.value;">${servingOptions}</select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Date</label>
+              <input id="date-picker" class="flatpickr-input" type="text" readonly placeholder="Select date" value="${d.date}"/>
+            </div>
+            <div class="form-field form-row-full">
+              <label class="form-label">Order Time</label>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div class="drum-picker-wrap">
+                  <div class="drum-col-wrap">
+                    <button class="drum-arrow-btn" onclick="drumStep('h',-1)">▲</button>
+                    <div class="drum-viewport" id="drum-h"></div>
+                    <button class="drum-arrow-btn" onclick="drumStep('h',1)">▼</button>
+                  </div>
+                  <div class="drum-sep">:</div>
+                  <div class="drum-col-wrap">
+                    <button class="drum-arrow-btn" onclick="drumStep('m',-1)">▲</button>
+                    <div class="drum-viewport" id="drum-m"></div>
+                    <button class="drum-arrow-btn" onclick="drumStep('m',1)">▼</button>
+                  </div>
+                </div>
+                <span style="font-size:22px;font-weight:800;color:var(--accent);" id="time-display">${d.orderTime.h}:${d.orderTime.m}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="drop-zone-wrap">
+          <div class="drop-zone-label">Order Items</div>
+          <div id="order-drop-zone">${orderItemsHtml}</div>
+        </div>
+
+        <!-- Footer -->
+        <div id="order-form-footer">
+          <button class="btn btn-secondary" onclick="cancelOrder()">Cancel</button>
+          <button class="btn btn-secondary" onclick="saveAndPrint()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Save & Print
+          </button>
+          <button class="btn btn-primary" onclick="saveOrder()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save Order
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  // Initialise Flatpickr
+  flatpickr('#date-picker', {
+    defaultDate: d.date,
+    dateFormat: 'Y-m-d',
+    onChange: ([date]) => {
+      if (date) {
+        S.draft.date = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+      }
+    }
+  });
+
+  // Initialise drum pickers
+  initDrum('h', Array.from({length:24},(_,i)=>String(i).padStart(2,'0')), d.orderTime.h);
+  initDrum('m', Array.from({length:60},(_,i)=>String(i).padStart(2,'0')), d.orderTime.m);
+
+  // Initialise SortableJS (order list only)
+  initSortable();
+
+  // Ensure file input
+  ensureFileInput();
+}
+
+// ═══════════════════════════════════════
+//  DRUM PICKER
+// ═══════════════════════════════════════
+function initDrum(key, values, initial) {
+  const vp = document.getElementById(`drum-${key}`);
+  if (!vp) return;
+  const idx = Math.max(0, values.indexOf(initial));
+
+  // Build items with padding
+  vp.innerHTML =
+    `<div class="drum-pad"></div>` +
+    values.map((v,i) => `<div class="drum-item${i===idx?' active':''}" data-val="${v}">${v}</div>`).join('') +
+    `<div class="drum-pad"></div>`;
+
+  // Scroll to initial
+  vp.scrollTop = idx * ITEM_H;
+
+  let scrollTimer;
+  vp.addEventListener('scroll', () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const selIdx = Math.round(vp.scrollTop / ITEM_H);
+      const clamped = Math.max(0, Math.min(values.length-1, selIdx));
+      vp.scrollTop = clamped * ITEM_H;
+      vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===clamped));
+      S.draft.orderTime[key] = values[clamped];
+      updateTimeDisplay();
+    }, 80);
+  });
+
+  // Click item to select
+  vp.addEventListener('click', e => {
+    const item = e.target.closest('.drum-item');
+    if (!item) return;
+    const clickIdx = Array.from(vp.querySelectorAll('.drum-item')).indexOf(item);
+    vp.scrollTo({ top: clickIdx * ITEM_H, behavior: 'smooth' });
+  });
+
+  // Mouse wheel
+  vp.addEventListener('wheel', e => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? 1 : -1;
+    const cur = Math.round(vp.scrollTop / ITEM_H);
+    const next = Math.max(0, Math.min(values.length-1, cur+dir));
+    vp.scrollTo({ top: next * ITEM_H, behavior: 'smooth' });
+  }, { passive: false });
+
+  S.drums[key] = { vp, values };
+}
+
+function drumStep(key, dir) {
+  const drum = S.drums[key];
+  if (!drum) return;
+  const { vp, values } = drum;
+  const cur  = Math.round(vp.scrollTop / ITEM_H);
+  const next = Math.max(0, Math.min(values.length-1, cur+dir));
+  vp.scrollTo({ top: next * ITEM_H, behavior: 'smooth' });
+  setTimeout(() => {
+    vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===next));
+    S.draft.orderTime[key] = values[next];
+    updateTimeDisplay();
+  }, 100);
+}
+
+function updateTimeDisplay() {
+  const el = document.getElementById('time-display');
+  if (el) el.textContent = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
+}
+
+// ═══════════════════════════════════════
+//  SORTABLE (Drag from menu → order)
+// ═══════════════════════════════════════
+function initSortable() {
+  const orderZone = document.getElementById('order-drop-zone');
+  if (!orderZone || typeof Sortable === 'undefined') return;
+
+  if (S.sortOrderList) { S.sortOrderList.destroy(); S.sortOrderList = null; }
+
+  // Order list: drag-to-reorder only
+  S.sortOrderList = Sortable.create(orderZone, {
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    handle: '.order-item-drag',
+    onEnd(evt) {
+      if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
+        const moved = S.draft.items.splice(evt.oldIndex, 1)[0];
+        S.draft.items.splice(evt.newIndex, 0, moved);
+        renderContent();
+      }
+    },
+  });
+}
+
+// ═══════════════════════════════════════
+//  ORDER ITEM MANAGEMENT
+// ═══════════════════════════════════════
+function addDishItem(dish, l1, l2) {
+  const l1v = l1 || null;
+  const l2v = l2 || null;
+  S.draft.items.push({ name: dish, choice1: l1v, choice2: l2v, note: '', qty: 1 });
+  renderContent();
+}
+
+function adjustQty(idx, delta) {
+  const item = S.draft.items[idx];
+  if (!item) return;
+  const newQty = (item.qty || 1) + delta;
+  if (newQty <= 0) {
+    S.draft.items.splice(idx, 1);
+  } else {
+    item.qty = newQty;
+  }
+  renderContent();
+}
+
+function removeOrderItem(idx) {
+  S.draft.items.splice(idx, 1);
+  renderContent();
+}
+
+function updateItemNote(idx, val) {
+  if (S.draft.items[idx]) S.draft.items[idx].note = val;
+}
+
+// ═══════════════════════════════════════
+//  DRAFT MANAGEMENT
+// ═══════════════════════════════════════
+function resetDraft() {
+  S.draft = {
+    room: '',
+    pax: 1,
+    date: todayStr(),
+    servingTime: 'Breakfast',
+    orderTime: { h: '07', m: '30' },
+    items: [],
+  };
+  S.editingId = null;
+  S.wizard = { mealPeriod: null, week: null, day: null };
+}
+
+function newOrder() {
+  resetDraft();
+  switchView('create');
+}
+
+function cancelOrder() {
+  S.editingId = null;
+  resetDraft();
+  switchView('summary');
+}
+
+// ═══════════════════════════════════════
+//  SAVE ORDER
+// ═══════════════════════════════════════
+function validateDraft() {
+  if (!S.draft.room.trim()) { toast('Please enter a room / table number.'); return false; }
+  if (S.draft.items.length === 0) { toast('Please add at least one item to the order.'); return false; }
+  return true;
+}
+
+function saveOrder() {
+  if (!validateDraft()) return;
+  const orderTime = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
+  if (S.editingId) {
+    const idx = S.orders.findIndex(o => o.id === S.editingId);
+    if (idx >= 0) {
+      S.orders[idx] = { ...S.orders[idx], ...S.draft, orderTime, items: [...S.draft.items] };
+    }
+    toast('Order updated.');
+  } else {
+    S.orders.push({ id: uuid(), ...S.draft, orderTime, items: [...S.draft.items] });
+    toast('Order saved.');
+  }
+  saveStorage();
+  resetDraft();
+  switchView('summary');
+}
+
+function saveAndPrint() {
+  if (!validateDraft()) return;
+  const orderTime = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
+  let order;
+  if (S.editingId) {
+    const idx = S.orders.findIndex(o => o.id === S.editingId);
+    if (idx >= 0) {
+      S.orders[idx] = { ...S.orders[idx], ...S.draft, orderTime, items: [...S.draft.items] };
+      order = S.orders[idx];
+    }
+  } else {
+    order = { id: uuid(), ...S.draft, orderTime, items: [...S.draft.items] };
+    S.orders.push(order);
+  }
+  saveStorage();
+  resetDraft();
+  switchView('summary');
+  setTimeout(() => showOrderModal(order), 100);
+}
+
+// ═══════════════════════════════════════
+//  ORDER ACTIONS (Summary)
+// ═══════════════════════════════════════
+function viewOrder(id) {
+  const order = S.orders.find(o => o.id === id);
+  if (order) showOrderModal(order);
+}
+
+function editOrder(id) {
+  const order = S.orders.find(o => o.id === id);
+  if (!order) return;
+  S.editingId = id;
+  S.draft = {
+    room: order.room,
+    pax: order.pax || 1,
+    date: order.date,
+    servingTime: order.servingTime,
+    orderTime: { h: order.orderTime.split(':')[0], m: order.orderTime.split(':')[1] },
+    items: order.items.map(i => ({...i})),
+  };
+  // Restore wizard mealPeriod from servingTime (Breakfast/Lunch/Dinner)
+  const mp = ['Breakfast','Lunch','Dinner'].includes(order.servingTime) ? order.servingTime : null;
+  S.wizard = {
+    mealPeriod: mp,
+    week: mp === 'Breakfast' ? 'All Weeks' : null,
+    day:  mp === 'Breakfast' ? 'Daily'     : null,
+  };
+  switchView('create');
+}
+
+function duplicateOrder(id) {
+  const order = S.orders.find(o => o.id === id);
+  if (!order) return;
+  const newOrder = { ...order, id: uuid(), items: order.items.map(i => ({...i})) };
+  S.orders.push(newOrder);
+  saveStorage();
+  renderContent();
+  toast('Order duplicated.');
+}
+
+function deleteOrder(id) {
+  const idx = S.orders.findIndex(o => o.id === id);
+  if (idx < 0) return;
+  S.orders.splice(idx, 1);
+  saveStorage();
+  renderContent();
+  toast('Order deleted.');
+}
+
+// ═══════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+//  ORDER TEMPLATE OUTPUT
+// ═══════════════════════════════════════
+function buildSingleOrderText(order) {
+  const lines = [
+    `KITCHEN ORDER`,
+    `${'─'.repeat(36)}`,
+    `Room / Table : ${order.room}`,
+    `Date         : ${formatDate(order.date)}`,
+    `Serving      : ${order.servingTime}`,
+    `Order Time   : ${order.orderTime}`,
+    `Pax          : ${order.pax || 1}`,
+    `${'─'.repeat(36)}`,
+  ];
+  order.items.forEach((item, idx) => {
+    const qty = item.qty || 1;
+    const qtyStr = qty > 1 ? `  ×${qty}` : '';
+    lines.push(`${idx+1}. ${itemDisplayName(item)}${qtyStr}`);
+    if (item.note && item.note.trim()) lines.push(`   Note: ${item.note.trim()}`);
+  });
+  lines.push(`${'─'.repeat(36)}`);
+  return lines.join('\n');
+}
+
+function buildOrderTemplateHtml(order) {
+  const now = new Date();
+  const generated = now.toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  const rows = order.items.map((item, i) => {
+    const qty = item.qty || 1;
+    return `<tr>
+      <td class="ot-col-no">${i + 1}</td>
+      <td class="ot-td-item">${escHtml(itemDisplayName(item))}</td>
+      <td class="ot-col-qty ot-td-qty">${qty}</td>
+      <td class="ot-td-note">${escHtml(item.note || '—')}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="order-template">
+    <div class="ot-head">
+      <div class="ot-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+        </svg>
+        <div>
+          <div class="ot-brand-name">Kitchen Order</div>
+          <div class="ot-brand-sub">Patient Meal Order Slip</div>
+        </div>
+      </div>
+      <div class="ot-slip-label">Order Slip<br/>#${order.id.slice(-6).toUpperCase()}</div>
+    </div>
+
+    <div class="ot-meta">
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Room / Table</div>
+        <div class="ot-meta-value">${escHtml(order.room)}</div>
+      </div>
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Date</div>
+        <div class="ot-meta-value">${escHtml(formatDate(order.date))}</div>
+      </div>
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Serving Time</div>
+        <div class="ot-meta-value">${escHtml(order.servingTime)}</div>
+      </div>
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Order Time</div>
+        <div class="ot-meta-value">${escHtml(order.orderTime)}</div>
+      </div>
+      <div class="ot-meta-cell" style="grid-column:1/-1;border-bottom:none;">
+        <div class="ot-meta-label">Number of Pax</div>
+        <div class="ot-meta-value">${order.pax || 1} pax</div>
+      </div>
+    </div>
+
+    <div class="ot-items-section">
+      <div class="ot-items-title">Order Items</div>
+      <table class="ot-table">
+        <thead>
+          <tr>
+            <th class="ot-col-no">#</th>
+            <th>Item</th>
+            <th class="ot-col-qty">Qty</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="ot-foot">
+      <div class="ot-generated">Generated: ${generated}</div>
+      <div class="ot-sig">Received by: _______________________</div>
+    </div>
+  </div>`;
+}
+
+function showOrderModal(order) {
+  openModal(
+    `Order — Room ${escHtml(order.room)}`,
+    buildOrderTemplateHtml(order),
+    `<button class="btn btn-secondary" onclick="copyText(buildSingleOrderText(S.orders.find(o=>o.id==='${order.id}')))">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+       Copy Text
+     </button>
+     <button class="btn btn-primary" onclick="printOrder('${order.id}')">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+       Download PDF
+     </button>`
+  );
+}
+
+function printOrder(id) {
+  const order = S.orders.find(o => o.id === id);
+  if (!order) return;
+  const slot = document.getElementById('print-slot');
+  slot.innerHTML = buildOrderTemplateHtml(order);
+  window.print();
+  slot.innerHTML = '';
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard!')).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Copied to clipboard!');
+  });
+}
+
+// ═══════════════════════════════════════
+//  DAILY REPORT
+// ═══════════════════════════════════════
+function showDailyReport() {
+  // Default to today, or first date that has orders
+  const today = todayStr();
+  const dates  = [...new Set(S.orders.map(o => o.date))].sort();
+  const targetDate = dates.includes(today) ? today : (dates[0] || today);
+  renderDailyReport(targetDate);
+}
+
+function renderDailyReport(date) {
+  const ordersForDate = S.orders.filter(o => o.date === date);
+  if (ordersForDate.length === 0) { toast('No orders for selected date.'); return; }
+
+  const lines = [];
+  const dateLabel = formatDate(date, {short:true});
+  const dayName   = formatDate(date).split(',')[0];
+  lines.push(`${dateLabel}  (${dayName})`);
+  lines.push('');
+
+  SERVING_ORDER.forEach(mealName => {
+    const mealOrders = ordersForDate.filter(o => o.servingTime === mealName);
+    if (!mealOrders.length) return;
+    const totalPax = mealOrders.reduce((s,o) => s + (o.pax||1), 0);
+    const serveTimes = [...new Set(mealOrders.map(o=>o.orderTime))];
+    lines.push(`${mealName}: (Total ${totalPax} pax)`);
+    lines.push('─'.repeat(28));
+    serveTimes.forEach(t => {
+      const atOrders = mealOrders.filter(o => o.orderTime === t);
+      lines.push(`> Serve at ${t}`);
+      atOrders.forEach(o => {
+        const pax  = o.pax || 1;
+        const itemNames = o.items.map(i => { const q = i.qty||1; return itemDisplayName(i) + (q > 1 ? ` ×${q}` : ''); }).join(', ');
+        lines.push(`* ${pax}pax - ${itemNames}`);
+        // Per-item notes (all pax share the same note in this order)
+        o.items.forEach(item => {
+          if (item.note && item.note.trim()) {
+            lines.push(`         Note: ${item.note.trim()}`);
+          }
+        });
+      });
+    });
+    lines.push('');
+  });
+
+  const text = lines.join('\n');
+
+  // Date selector if multiple dates exist
+  const allDates = [...new Set(S.orders.map(o => o.date))].sort();
+  let dateSelectorHtml = '';
+  if (allDates.length > 1) {
+    dateSelectorHtml = `
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;font-weight:700;color:var(--text-muted);">Date:</label>
+        <select class="form-select" onchange="renderDailyReport(this.value)" style="font-size:12px;padding:4px 8px;">
+          ${allDates.map(d => `<option value="${d}" ${d===date?'selected':''}>${formatDate(d,{medium:true})}</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  openModal(
+    `Daily Report — ${formatDate(date, {medium:true})}`,
+    `${dateSelectorHtml}<div class="order-preview">${escHtml(text)}</div>`,
+    `<button class="btn btn-secondary" onclick="copyText(document.querySelector('.order-preview').textContent)">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+       Copy to Clipboard
+     </button>
+     <button class="btn btn-primary" onclick="window.print()">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+       Print
+     </button>`
+  );
+}
+
+// ═══════════════════════════════════════
+//  EXCEL MENU UPLOAD
+// ═══════════════════════════════════════
+function ensureFileInput() {
+  if (document.getElementById('file-input')) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.id = 'file-input';
+  inp.accept = '.xlsx,.xls';
+  inp.style.display = 'none';
+  inp.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) handleMenuUpload(file);
+    inp.value = '';
+  });
+  document.body.appendChild(inp);
+}
+
+function triggerMenuUpload() { document.getElementById('file-input')?.click(); }
+
+function handleMenuUpload(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, { type: 'array' });
+
+      // Prefer "FULL MENU" sheet; fallback to first sheet
+      const sheetName = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FULL MENU') || wb.SheetNames[0];
+      const ws   = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) { toast('No data found in the Excel file.'); return; }
+
+      const keys = Object.keys(rows[0]);
+
+      // Detect new format: has a "Meal Period" / "Week" / "Day" column
+      const isNewFormat = keys.some(k => k.toLowerCase().includes('meal period') || k.toLowerCase() === 'meal period');
+
+      if (isNewFormat) {
+        // Map columns case-insensitively
+        const col = {};
+        keys.forEach(k => {
+          const kl = k.toLowerCase().trim();
+          if (kl === 'meal period' || kl.includes('meal period')) col.mealPeriod = k;
+          else if (kl === 'week')                                  col.week       = k;
+          else if (kl === 'day')                                   col.day        = k;
+          else if (kl.includes('dish') || kl.includes('item name')) col.dish     = k;
+          else if (kl.includes('choice') && kl.includes('1') || kl.includes('level 1')) col.l1 = k;
+          else if (kl.includes('choice') && kl.includes('2') || kl.includes('level 2')) col.l2 = k;
+        });
+        if (!col.dish) { toast('Could not find a "Dish / Item Name" column in the Excel file.'); return; }
+
+        S.menuItems = rows
+          .filter(r => String(r[col.dish]||'').trim())
+          .map(r => ({
+            mealPeriod: String(r[col.mealPeriod]||'').trim(),
+            week:       String(r[col.week]||'').trim(),
+            day:        String(r[col.day]||'').trim(),
+            dish:       String(r[col.dish]).trim(),
+            l1:         col.l1 ? String(r[col.l1]||'').trim() || null : null,
+            l2:         col.l2 ? String(r[col.l2]||'').trim() || null : null,
+          }));
+
+        saveStorage();
+        S.wizard = { mealPeriod: null, week: null, day: null };
+        renderContent();
+        toast(`Loaded ${S.menuItems.length} menu rows from "${sheetName}".`);
+      } else {
+        // Old 4-column format fallback
+        const colMap = {};
+        keys.forEach(k => {
+          const kl = k.toLowerCase().trim();
+          if (kl.includes('category')) colMap.category = k;
+          else if (kl.includes('item') || kl.includes('name')) colMap.name = k;
+          else if (kl.includes('desc')) colMap.description = k;
+          else if (kl.includes('tag')) colMap.tags = k;
+        });
+        if (!colMap.name) { toast('Could not find an "Item Name" column in the Excel file.'); return; }
+
+        // Old format is no longer supported; guide user to the new file
+        toast('Old menu format detected. Please upload Full_Menu_Consolidated.xlsx instead.');
+      }
+    } catch(err) {
+      toast('Failed to read Excel file. Please check the format.');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════
+//  TEMPLATE DOWNLOAD
+// ═══════════════════════════════════════
+function downloadTemplate() {
+  const a = document.createElement('a');
+  a.href = TEMPLATE_FILE;
+  a.download = TEMPLATE_FILE;
+  a.click();
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadStorage();
+  startClock();
+  ensureFileInput();
+  renderContent();
+
+  // Close modal on overlay click
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+
+  // ESC to close modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+});
+</script>
+</body>
+</html>
