@@ -937,6 +937,49 @@
       line-height: 1.6;
     }
 
+    /* ─── Help Guide ─── */
+    #help-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      cursor: pointer; font-size: 14px; font-weight: 800;
+      color: var(--text-muted); display: flex; align-items: center;
+      justify-content: center; transition: all 0.15s; flex-shrink: 0;
+    }
+    #help-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .guide-section { margin-bottom: 24px; }
+    .guide-section:last-child { margin-bottom: 0; }
+    .guide-section-title {
+      font-size: 11px; font-weight: 900; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--accent-dark);
+      background: var(--accent-light); border-radius: 6px;
+      padding: 5px 10px; margin-bottom: 12px; display: inline-block;
+    }
+    .guide-steps { display: flex; flex-direction: column; gap: 10px; }
+    .guide-step {
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .guide-step-num {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent); color: #fff;
+      font-size: 11px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .guide-step-body { flex: 1; }
+    .guide-step-title { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+    .guide-step-desc { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+    .guide-step-desc code {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 5px; font-size: 11px;
+      font-family: monospace; color: var(--accent-dark);
+    }
+    .guide-tip {
+      background: var(--accent-light); border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0; padding: 8px 12px;
+      font-size: 12px; color: var(--text); line-height: 1.5; margin-top: 10px;
+    }
+    .guide-tip strong { color: var(--accent-dark); }
+
     /* ─── Print styles ─── */
     #print-slot { display: none; }
     @media print {
@@ -970,7 +1013,10 @@
       <div id="header-divider"></div>
       <div id="greeting">Good Morning</div>
     </div>
-    <div id="datetime"></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div id="datetime"></div>
+      <button id="help-btn" onclick="showGuide()" title="How to use">?</button>
+    </div>
   </header>
 
   <!-- Body -->
@@ -1964,6 +2010,121 @@ function printOrder(id) {
   slot.innerHTML = buildOrderTemplateHtml(order);
   window.print();
   slot.innerHTML = '';
+}
+
+function showGuide() {
+  const body = `
+    <div class="guide-section">
+      <div class="guide-section-title">First-Time Setup</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Upload the menu file</div>
+            <div class="guide-step-desc">In the <strong>Summary</strong> view, click <code>Upload Menu</code> and select <code>Full_Menu_Consolidated.xlsx</code>. The menu is cached in the browser — you only need to do this once.</div>
+          </div>
+        </div>
+      </div>
+      <div class="guide-tip"><strong>Tip:</strong> If the menu changes, simply upload the new file again to refresh it.</div>
+    </div>
+
+    <div class="guide-section">
+      <div class="guide-section-title">Creating an Order</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Open the order form</div>
+            <div class="guide-step-desc">Click the <strong>+ Order</strong> button in the left sidebar to start a new order.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Select Meal Period</div>
+            <div class="guide-step-desc">Choose <code>Breakfast</code>, <code>Lunch</code>, or <code>Dinner</code>. Selecting Breakfast shows dishes immediately. Lunch and Dinner proceed to the next steps. The Serving Time field is auto-set.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Select Week &amp; Day <span style="font-weight:600;color:var(--text-muted)">(Lunch / Dinner only)</span></div>
+            <div class="guide-step-desc">Pick the menu week (<code>Week 1</code>–<code>Week 4</code>) then the day of the week. Dishes for that session will appear below.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">4</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Add dishes to the order</div>
+            <div class="guide-step-desc">Click a dish pill to add it. For dishes with options, select the choice (e.g. Chicken, Fish). Each click adds a <strong>new entry</strong> — useful when the same dish needs different notes for different patients. The pill shows how many entries exist.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">5</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Adjust quantity &amp; add notes</div>
+            <div class="guide-step-desc">Use the <code>−</code> / <code>+</code> controls on each item to set quantity. Type a note (e.g. <em>no salt, extra portion</em>) in the note field below each item. Drag the handle on the left to reorder items.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">6</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Fill in order details</div>
+            <div class="guide-step-desc">Enter <strong>Room / Table Number</strong>, <strong>Number of Pax</strong> (patients sharing this order), <strong>Date</strong>, <strong>Serving Time</strong>, and <strong>Order Time</strong> using the drum scroll picker.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">7</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Save the order</div>
+            <div class="guide-step-desc">Click <code>Save Order</code> to store it, or <code>Save &amp; Print</code> to store and immediately open the print slip.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-section">
+      <div class="guide-section-title">Managing Orders</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">View an order slip</div>
+            <div class="guide-step-desc">Click anywhere on an order row in the Summary to open the formatted order slip. Click <code>Download PDF</code> to print or save as PDF.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Edit, duplicate, or delete</div>
+            <div class="guide-step-desc">Use the action icons on the right of each row — <strong>pencil</strong> to edit, <strong>copy</strong> to duplicate (useful for similar rooms), <strong>bin</strong> to delete.</div>
+          </div>
+        </div>
+      </div>
+      <div class="guide-tip"><strong>Tip:</strong> Use <strong>Duplicate</strong> to quickly create a similar order for another room, then edit just the room number and any item differences.</div>
+    </div>
+
+    <div class="guide-section">
+      <div class="guide-section-title">Reports</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Daily Kitchen Report</div>
+            <div class="guide-step-desc">Click <code>Daily Report</code> at the top of the Summary to generate a full-day report grouped by meal (Breakfast, Lunch, Dinner…) and serve time. Copy or print it to hand to the kitchen.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Single order slip</div>
+            <div class="guide-step-desc">Click any order row → <code>Download PDF</code>. In the print dialog, set the destination to <strong>Save as PDF</strong> to download a PDF file of the order slip.</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  openModal('How to Use Kitchen Order', body, '');
 }
 
 function copyText(text) {
