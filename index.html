@@ -855,6 +855,72 @@
     .sortable-ghost { opacity: 0.35; }
     .sortable-chosen { box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
 
+    /* ─── Serving Time Tabs ─── */
+    .serving-tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border2);
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+    .serving-tabs::-webkit-scrollbar { display: none; }
+    .serving-tab-btn {
+      flex-shrink: 0;
+      padding: 5px 11px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+      font-family: inherit;
+      position: relative;
+    }
+    .serving-tab-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .serving-tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,0.30); }
+    .serving-tab-btn .tab-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+      font-size: 9px; font-weight: 900;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .serving-tab-btn:not(.active) .tab-badge {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ─── Slot Order Time row (inside left panel) ─── */
+    .slot-time-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border2);
+      flex-shrink: 0;
+      background: var(--surface2);
+    }
+    .slot-time-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    #time-display {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+      min-width: 44px;
+    }
+
     /* ─── Wizard Steps ─── */
     .wizard-section {
       padding: 8px 14px 8px;
@@ -1067,10 +1133,28 @@
 // ═══════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════
-const SERVING_ORDER = ['Breakfast', 'Brunch', 'Lunch', 'Tea Time', 'Dinner', 'Supper'];
+const SERVING_ORDER = ['Breakfast', 'Brunch', 'Lunch', 'Tea Time', 'Dinner', 'Supper', 'Other'];
+const SLOT_DEFAULTS = {
+  'Breakfast': { h: '07', m: '30' },
+  'Brunch':    { h: '10', m: '00' },
+  'Lunch':     { h: '11', m: '30' },
+  'Tea Time':  { h: '15', m: '00' },
+  'Dinner':    { h: '18', m: '30' },
+  'Supper':    { h: '21', m: '30' },
+  'Other':     { h: '00', m: '00' },
+};
 const STORAGE_KEY   = 'kitchen_order_app_v1';
 const ITEM_H        = 36; // drum item height px
 const TEMPLATE_FILE = 'menu-template.xlsx';
+
+function makeDraftSlots() {
+  const slots = {};
+  SERVING_ORDER.forEach(name => {
+    const def = SLOT_DEFAULTS[name];
+    slots[name] = { orderTime: { h: def.h, m: def.m }, items: [] };
+  });
+  return slots;
+}
 
 // ═══════════════════════════════════════
 //  STATE
@@ -1086,13 +1170,12 @@ const S = {
     room: '',
     pax: 1,
     date: todayStr(),
-    servingTime: 'Breakfast',
-    orderTime: { h: '07', m: '30' },
-    items: [],            // [{name, choice1, choice2, note}]
+    activeTab: 'Breakfast',
+    slots: makeDraftSlots(),  // keyed by serving time name
   },
 
-  // wizard state (menu navigation)
-  wizard: { mealPeriod: null, week: null, day: null },
+  // wizard state (menu navigation — week/day only; mealPeriod = activeTab)
+  wizard: { week: 'All Weeks', day: 'Daily' },
 
   // drum pickers
   drums: { h: null, m: null },
@@ -1230,12 +1313,12 @@ function renderContent() {
 //  SUMMARY VIEW
 // ═══════════════════════════════════════
 function renderSummary(root) {
-  // Group orders by date
+  // Group orders: byDate[date][room] = [order, ...]
   const byDate = {};
   S.orders.forEach(o => {
     if (!byDate[o.date]) byDate[o.date] = {};
-    if (!byDate[o.date][o.servingTime]) byDate[o.date][o.servingTime] = [];
-    byDate[o.date][o.servingTime].push(o);
+    if (!byDate[o.date][o.room]) byDate[o.date][o.room] = [];
+    byDate[o.date][o.room].push(o);
   });
   const sortedDates = Object.keys(byDate).sort();
 
@@ -1243,25 +1326,30 @@ function renderSummary(root) {
   const today = todayStr();
   let dateGroupsHtml = '';
   sortedDates.forEach(date => {
-    const byMeal = byDate[date];
+    const byRoom = byDate[date];
     const isToday = date === today;
-    let mealBlocksHtml = '';
+    let roomBlocksHtml = '';
 
-    SERVING_ORDER.forEach(mealName => {
-      if (!byMeal[mealName]) return;
-      const orders = byMeal[mealName];
-      const totalPax = orders.reduce((s,o) => s + (o.pax||1), 0);
-      // All serve-at times in this block (use earliest)
-      const times = [...new Set(orders.map(o=>o.orderTime))].join(', ');
+    // Sort rooms alphabetically
+    Object.keys(byRoom).sort().forEach(room => {
+      const roomOrders = byRoom[room];
+      const pax = roomOrders[0].pax || 1;
 
-      let rowsHtml = '';
-      orders.forEach(o => {
+      // Group this room's orders by serving time (preserve SERVING_ORDER order)
+      let servingRowsHtml = '';
+      SERVING_ORDER.forEach(mealName => {
+        const o = roomOrders.find(x => x.servingTime === mealName);
+        if (!o) return;
         const itemsPreview = o.items.map(i => itemDisplayName(i)).join(', ');
-        rowsHtml += `
+        servingRowsHtml += `
           <div class="order-row" style="cursor:pointer;" onclick="viewOrder('${o.id}')">
-            <div class="order-room">Room ${escHtml(o.room)}</div>
-            <div class="order-pax-badge">${o.pax||1} pax</div>
-            <div class="order-items-preview" title="${escHtml(itemsPreview)}">${escHtml(itemsPreview)}</div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="meal-label" style="font-size:11px;padding:2px 8px;">${escHtml(mealName)}</span>
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);">${escHtml(o.orderTime)}</span>
+              </div>
+              <div class="order-items-preview" title="${escHtml(itemsPreview)}">${escHtml(itemsPreview)}</div>
+            </div>
             <div class="order-row-actions" onclick="event.stopPropagation()">
               <button class="btn-icon" title="View / Print" onclick="viewOrder('${o.id}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1279,20 +1367,20 @@ function renderSummary(root) {
           </div>`;
       });
 
-      mealBlocksHtml += `
+      roomBlocksHtml += `
         <div class="meal-block">
           <div class="meal-block-header">
-            <span class="meal-label">${escHtml(mealName)}</span>
-            <span class="meal-meta">${totalPax} pax &bull; ${escHtml(times)}</span>
+            <span class="meal-label">Room ${escHtml(room)}</span>
+            <span class="meal-meta">${pax} pax</span>
           </div>
-          ${rowsHtml}
+          ${servingRowsHtml}
         </div>`;
     });
 
     dateGroupsHtml += `
       <div class="date-group">
         <div class="date-group-label">${isToday ? 'Today — ' : ''}${formatDate(date, {medium:true})}</div>
-        ${mealBlocksHtml}
+        ${roomBlocksHtml}
       </div>`;
   });
 
@@ -1343,11 +1431,11 @@ function renderSummary(root) {
 // ═══════════════════════════════════════
 //  WIZARD SELECTION
 // ═══════════════════════════════════════
-function selectMealPeriod(mp) {
-  S.wizard.mealPeriod = mp;
-  S.wizard.week = mp === 'Breakfast' ? 'All Weeks' : null;
-  S.wizard.day  = mp === 'Breakfast' ? 'Daily'     : null;
-  S.draft.servingTime = mp; // auto-set serving time
+function selectTab(name) {
+  S.draft.activeTab = name;
+  // Breakfast-like tabs have no week/day — pre-set them
+  S.wizard.week = (name === 'Breakfast') ? 'All Weeks' : null;
+  S.wizard.day  = (name === 'Breakfast') ? 'Daily'     : null;
   renderContent();
 }
 
@@ -1395,12 +1483,13 @@ function buildDishGroups(rows) {
 
 function buildDishGroupsHtml(groups) {
   if (!groups.length) return '<div class="menu-no-selection">No dishes found for this selection.</div>';
+  const activeItems = S.draft.slots[S.draft.activeTab].items;
   return groups.map(g => {
     const { dish, l1Groups } = g;
     const safeDish = escHtml(dish).replace(/'/g, '&#39;');
     let pillsHtml = '';
     if (!l1Groups) {
-      const count = S.draft.items.filter(i => i.name === dish && !i.choice1 && !i.choice2).length;
+      const count = activeItems.filter(i => i.name === dish && !i.choice1 && !i.choice2).length;
       pillsHtml = `<div class="choice-pills">
         <button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}',null,null)">
           ${count ? `&#10003;${count > 1 ? ' \xd7' + count : ' Added'}` : '+ Add'}
@@ -1411,7 +1500,7 @@ function buildDishGroupsHtml(groups) {
         pillsHtml = `<div class="choice-pills">` +
           l1Groups.map(({ l1 }) => {
             const safeL1 = escHtml(l1).replace(/'/g, '&#39;');
-            const count = S.draft.items.filter(i => i.name === dish && i.choice1 === l1 && !i.choice2).length;
+            const count = activeItems.filter(i => i.name === dish && i.choice1 === l1 && !i.choice2).length;
             const label = count ? `&#10003; ${escHtml(l1)}${count > 1 ? ' \xd7' + count : ''}` : escHtml(l1);
             return `<button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}','${safeL1}',null)">${label}</button>`;
           }).join('') + `</div>`;
@@ -1420,7 +1509,7 @@ function buildDishGroupsHtml(groups) {
           const safeL1 = escHtml(l1).replace(/'/g, '&#39;');
           const l2Html = (l2Options || []).map(l2 => {
             const safeL2 = escHtml(l2).replace(/'/g, '&#39;');
-            const count = S.draft.items.filter(i => i.name === dish && i.choice1 === l1 && i.choice2 === l2).length;
+            const count = activeItems.filter(i => i.name === dish && i.choice1 === l1 && i.choice2 === l2).length;
             const label = count ? `&#10003; ${escHtml(l2)}${count > 1 ? ' \xd7' + count : ''}` : escHtml(l2);
             return `<button class="choice-pill${count ? ' in-order' : ''}" onclick="addDishItem('${safeDish}','${safeL1}','${safeL2}')">${label}</button>`;
           }).join('');
@@ -1443,26 +1532,48 @@ function buildDishGroupsHtml(groups) {
 // ═══════════════════════════════════════
 function renderCreate(root) {
   const d = S.draft;
+  const tab = d.activeTab;
   const wiz = S.wizard;
+  const slot = d.slots[tab];
 
-  // --- Wizard logic ---
-  const showStep2 = wiz.mealPeriod && wiz.mealPeriod !== 'Breakfast';
+  // --- Wizard logic (mealPeriod = active tab) ---
+  const showStep2 = tab !== 'Breakfast';
   const showStep3 = showStep2 && wiz.week;
-  const showDishes = wiz.mealPeriod === 'Breakfast' || (wiz.week && wiz.day);
+  const showDishes = tab === 'Breakfast' || (wiz.week && wiz.day);
 
-  // --- Wizard HTML ---
-  const wizardHtml = `
-    <div class="wizard-section">
-      <div class="wizard-step-label">Step 1 — Meal Period</div>
-      <div class="wizard-btns">
-        ${['Breakfast','Lunch','Dinner'].map(mp =>
-          `<button class="wizard-btn${wiz.mealPeriod===mp?' active':''}" onclick="selectMealPeriod('${mp}')">${mp}</button>`
-        ).join('')}
+  // --- Serving tabs HTML ---
+  const tabsHtml = SERVING_ORDER.map(name => {
+    const count = d.slots[name].items.length;
+    const badge = count > 0 ? `<span class="tab-badge">${count}</span>` : '';
+    return `<button class="serving-tab-btn${tab===name?' active':''}" onclick="selectTab('${name}')">${escHtml(name)}${badge}</button>`;
+  }).join('');
+
+  // --- Order time (for active tab) ---
+  const slotTime = slot.orderTime;
+  const timeRowHtml = `
+    <div class="slot-time-row">
+      <span class="slot-time-label">Order Time</span>
+      <div class="drum-picker-wrap">
+        <div class="drum-col-wrap">
+          <button class="drum-arrow-btn" onclick="drumStep('h',-1)">▲</button>
+          <div class="drum-viewport" id="drum-h"></div>
+          <button class="drum-arrow-btn" onclick="drumStep('h',1)">▼</button>
+        </div>
+        <div class="drum-sep">:</div>
+        <div class="drum-col-wrap">
+          <button class="drum-arrow-btn" onclick="drumStep('m',-1)">▲</button>
+          <div class="drum-viewport" id="drum-m"></div>
+          <button class="drum-arrow-btn" onclick="drumStep('m',1)">▼</button>
+        </div>
       </div>
-    </div>
+      <span id="time-display">${slotTime.h}:${slotTime.m}</span>
+    </div>`;
+
+  // --- Wizard HTML (steps 2 & 3 only) ---
+  const wizardHtml = `
     ${showStep2 ? `
     <div class="wizard-section">
-      <div class="wizard-step-label">Step 2 — Week</div>
+      <div class="wizard-step-label">Week</div>
       <div class="wizard-btns">
         ${['Week 1','Week 2','Week 3','Week 4'].map(wk =>
           `<button class="wizard-btn${wiz.week===wk?' active':''}" onclick="selectWizardWeek('${wk}')">${wk}</button>`
@@ -1471,7 +1582,7 @@ function renderCreate(root) {
     </div>` : ''}
     ${showStep3 ? `
     <div class="wizard-section">
-      <div class="wizard-step-label">Step 3 — Day</div>
+      <div class="wizard-step-label">Day</div>
       <div class="wizard-btns">
         ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day =>
           `<button class="wizard-btn${wiz.day===day?' active':''}" onclick="selectWizardDay('${day}')">${day.slice(0,3)}</button>`
@@ -1482,27 +1593,28 @@ function renderCreate(root) {
   // --- Dish list HTML ---
   let dishListHtml;
   if (!showDishes) {
-    dishListHtml = `<div class="menu-no-selection">${wiz.mealPeriod
-      ? 'Select a week and day to see dishes.'
-      : 'Select a meal period above to begin.'}</div>`;
+    dishListHtml = `<div class="menu-no-selection">Select a week and day to see dishes.</div>`;
   } else if (S.menuItems.length === 0) {
     dishListHtml = `<div class="menu-no-selection">Upload <strong>Full_Menu_Consolidated.xlsx</strong> via the Upload Menu button to load the menu.</div>`;
   } else {
+    const wk  = tab === 'Breakfast' ? 'All Weeks' : wiz.week;
+    const day = tab === 'Breakfast' ? 'Daily'     : wiz.day;
     const filtered = S.menuItems.filter(r =>
-      r.mealPeriod === wiz.mealPeriod && r.week === wiz.week && r.day === wiz.day
+      r.mealPeriod === tab && r.week === wk && r.day === day
     );
     dishListHtml = filtered.length
       ? buildDishGroupsHtml(buildDishGroups(filtered))
       : `<div class="menu-no-selection">No dishes found for this selection.</div>`;
   }
 
-  // --- Order items list ---
-  const orderItemsHtml = d.items.length === 0
+  // --- Order items list (active slot) ---
+  const activeItems = slot.items;
+  const orderItemsHtml = activeItems.length === 0
     ? `<div class="drop-empty">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
         Select items from the menu to add them here
       </div>`
-    : d.items.map((item, idx) => `
+    : activeItems.map((item, idx) => `
         <div class="order-item-card" data-idx="${idx}">
           <span class="order-item-drag">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="17" r="1" fill="currentColor"/><circle cx="15" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="17" r="1" fill="currentColor"/></svg>
@@ -1528,9 +1640,6 @@ function renderCreate(root) {
   const paxOptions = Array.from({length:20},(_,i)=>i+1)
     .map(n => `<option value="${n}" ${d.pax===n?'selected':''}>${n} pax</option>`).join('');
 
-  const servingOptions = SERVING_ORDER
-    .map(s => `<option value="${s}" ${d.servingTime===s?'selected':''}>${s}</option>`).join('');
-
   root.innerHTML = `
     <div id="create-view">
       <!-- Left: Menu Panel -->
@@ -1538,6 +1647,8 @@ function renderCreate(root) {
         <div class="menu-panel-header">
           <div class="menu-panel-title">Menu</div>
         </div>
+        <div class="serving-tabs">${tabsHtml}</div>
+        ${timeRowHtml}
         ${wizardHtml}
         <div id="menu-items-list">${dishListHtml}</div>
       </div>
@@ -1557,39 +1668,16 @@ function renderCreate(root) {
               <label class="form-label">Number of Pax</label>
               <select class="form-select" onchange="S.draft.pax=parseInt(this.value);">${paxOptions}</select>
             </div>
-            <div class="form-field">
-              <label class="form-label">Serving Time</label>
-              <select class="form-select" onchange="S.draft.servingTime=this.value;">${servingOptions}</select>
-            </div>
-            <div class="form-field">
+            <div class="form-field form-row-full">
               <label class="form-label">Date</label>
               <input id="date-picker" class="flatpickr-input" type="text" readonly placeholder="Select date" value="${d.date}"/>
-            </div>
-            <div class="form-field form-row-full">
-              <label class="form-label">Order Time</label>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div class="drum-picker-wrap">
-                  <div class="drum-col-wrap">
-                    <button class="drum-arrow-btn" onclick="drumStep('h',-1)">▲</button>
-                    <div class="drum-viewport" id="drum-h"></div>
-                    <button class="drum-arrow-btn" onclick="drumStep('h',1)">▼</button>
-                  </div>
-                  <div class="drum-sep">:</div>
-                  <div class="drum-col-wrap">
-                    <button class="drum-arrow-btn" onclick="drumStep('m',-1)">▲</button>
-                    <div class="drum-viewport" id="drum-m"></div>
-                    <button class="drum-arrow-btn" onclick="drumStep('m',1)">▼</button>
-                  </div>
-                </div>
-                <span style="font-size:22px;font-weight:800;color:var(--accent);" id="time-display">${d.orderTime.h}:${d.orderTime.m}</span>
-              </div>
             </div>
           </div>
         </div>
 
         <!-- Drop zone -->
         <div id="drop-zone-wrap">
-          <div class="drop-zone-label">Order Items</div>
+          <div class="drop-zone-label">Order Items — ${escHtml(tab)}</div>
           <div id="order-drop-zone">${orderItemsHtml}</div>
         </div>
 
@@ -1619,9 +1707,9 @@ function renderCreate(root) {
     }
   });
 
-  // Initialise drum pickers
-  initDrum('h', Array.from({length:24},(_,i)=>String(i).padStart(2,'0')), d.orderTime.h);
-  initDrum('m', Array.from({length:60},(_,i)=>String(i).padStart(2,'0')), d.orderTime.m);
+  // Initialise drum pickers for active slot
+  initDrum('h', Array.from({length:24},(_,i)=>String(i).padStart(2,'0')), slotTime.h);
+  initDrum('m', Array.from({length:60},(_,i)=>String(i).padStart(2,'0')), slotTime.m);
 
   // Initialise SortableJS (order list only)
   initSortable();
@@ -1655,7 +1743,7 @@ function initDrum(key, values, initial) {
       const clamped = Math.max(0, Math.min(values.length-1, selIdx));
       vp.scrollTop = clamped * ITEM_H;
       vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===clamped));
-      S.draft.orderTime[key] = values[clamped];
+      S.draft.slots[S.draft.activeTab].orderTime[key] = values[clamped];
       updateTimeDisplay();
     }, 80);
   });
@@ -1689,14 +1777,16 @@ function drumStep(key, dir) {
   vp.scrollTo({ top: next * ITEM_H, behavior: 'smooth' });
   setTimeout(() => {
     vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===next));
-    S.draft.orderTime[key] = values[next];
+    S.draft.slots[S.draft.activeTab].orderTime[key] = values[next];
     updateTimeDisplay();
   }, 100);
 }
 
 function updateTimeDisplay() {
   const el = document.getElementById('time-display');
-  if (el) el.textContent = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
+  if (!el) return;
+  const t = S.draft.slots[S.draft.activeTab].orderTime;
+  el.textContent = `${t.h}:${t.m}`;
 }
 
 // ═══════════════════════════════════════
@@ -1716,8 +1806,9 @@ function initSortable() {
     handle: '.order-item-drag',
     onEnd(evt) {
       if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
-        const moved = S.draft.items.splice(evt.oldIndex, 1)[0];
-        S.draft.items.splice(evt.newIndex, 0, moved);
+        const items = S.draft.slots[S.draft.activeTab].items;
+        const moved = items.splice(evt.oldIndex, 1)[0];
+        items.splice(evt.newIndex, 0, moved);
         renderContent();
       }
     },
@@ -1728,18 +1819,18 @@ function initSortable() {
 //  ORDER ITEM MANAGEMENT
 // ═══════════════════════════════════════
 function addDishItem(dish, l1, l2) {
-  const l1v = l1 || null;
-  const l2v = l2 || null;
-  S.draft.items.push({ name: dish, choice1: l1v, choice2: l2v, note: '', qty: 1 });
+  const items = S.draft.slots[S.draft.activeTab].items;
+  items.push({ name: dish, choice1: l1||null, choice2: l2||null, note: '', qty: 1 });
   renderContent();
 }
 
 function adjustQty(idx, delta) {
-  const item = S.draft.items[idx];
+  const items = S.draft.slots[S.draft.activeTab].items;
+  const item = items[idx];
   if (!item) return;
   const newQty = (item.qty || 1) + delta;
   if (newQty <= 0) {
-    S.draft.items.splice(idx, 1);
+    items.splice(idx, 1);
   } else {
     item.qty = newQty;
   }
@@ -1747,12 +1838,13 @@ function adjustQty(idx, delta) {
 }
 
 function removeOrderItem(idx) {
-  S.draft.items.splice(idx, 1);
+  S.draft.slots[S.draft.activeTab].items.splice(idx, 1);
   renderContent();
 }
 
 function updateItemNote(idx, val) {
-  if (S.draft.items[idx]) S.draft.items[idx].note = val;
+  const items = S.draft.slots[S.draft.activeTab].items;
+  if (items[idx]) items[idx].note = val;
 }
 
 // ═══════════════════════════════════════
@@ -1763,12 +1855,11 @@ function resetDraft() {
     room: '',
     pax: 1,
     date: todayStr(),
-    servingTime: 'Breakfast',
-    orderTime: { h: '07', m: '30' },
-    items: [],
+    activeTab: 'Breakfast',
+    slots: makeDraftSlots(),
   };
   S.editingId = null;
-  S.wizard = { mealPeriod: null, week: null, day: null };
+  S.wizard = { week: 'All Weeks', day: 'Daily' };
 }
 
 function newOrder() {
@@ -1787,21 +1878,42 @@ function cancelOrder() {
 // ═══════════════════════════════════════
 function validateDraft() {
   if (!S.draft.room.trim()) { toast('Please enter a room / table number.'); return false; }
-  if (S.draft.items.length === 0) { toast('Please add at least one item to the order.'); return false; }
+  const hasItems = SERVING_ORDER.some(name => S.draft.slots[name].items.length > 0);
+  if (!hasItems) { toast('Please add at least one item to the order.'); return false; }
   return true;
 }
 
 function saveOrder() {
   if (!validateDraft()) return;
-  const orderTime = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
+  const d = S.draft;
   if (S.editingId) {
     const idx = S.orders.findIndex(o => o.id === S.editingId);
     if (idx >= 0) {
-      S.orders[idx] = { ...S.orders[idx], ...S.draft, orderTime, items: [...S.draft.items] };
+      const existing = S.orders[idx];
+      const slot = d.slots[existing.servingTime];
+      if (slot) {
+        S.orders[idx] = {
+          ...existing,
+          room: d.room, pax: d.pax, date: d.date,
+          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
+          items: [...slot.items],
+        };
+      }
     }
     toast('Order updated.');
   } else {
-    S.orders.push({ id: uuid(), ...S.draft, orderTime, items: [...S.draft.items] });
+    SERVING_ORDER.forEach(name => {
+      const slot = d.slots[name];
+      if (slot.items.length > 0) {
+        S.orders.push({
+          id: uuid(),
+          room: d.room, pax: d.pax, date: d.date,
+          servingTime: name,
+          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
+          items: [...slot.items],
+        });
+      }
+    });
     toast('Order saved.');
   }
   saveStorage();
@@ -1811,22 +1923,43 @@ function saveOrder() {
 
 function saveAndPrint() {
   if (!validateDraft()) return;
-  const orderTime = `${S.draft.orderTime.h}:${S.draft.orderTime.m}`;
-  let order;
+  const d = S.draft;
+  let firstOrder = null;
   if (S.editingId) {
     const idx = S.orders.findIndex(o => o.id === S.editingId);
     if (idx >= 0) {
-      S.orders[idx] = { ...S.orders[idx], ...S.draft, orderTime, items: [...S.draft.items] };
-      order = S.orders[idx];
+      const existing = S.orders[idx];
+      const slot = d.slots[existing.servingTime];
+      if (slot) {
+        S.orders[idx] = {
+          ...existing,
+          room: d.room, pax: d.pax, date: d.date,
+          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
+          items: [...slot.items],
+        };
+        firstOrder = S.orders[idx];
+      }
     }
   } else {
-    order = { id: uuid(), ...S.draft, orderTime, items: [...S.draft.items] };
-    S.orders.push(order);
+    SERVING_ORDER.forEach(name => {
+      const slot = d.slots[name];
+      if (slot.items.length > 0) {
+        const order = {
+          id: uuid(),
+          room: d.room, pax: d.pax, date: d.date,
+          servingTime: name,
+          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
+          items: [...slot.items],
+        };
+        S.orders.push(order);
+        if (!firstOrder) firstOrder = order;
+      }
+    });
   }
   saveStorage();
   resetDraft();
   switchView('summary');
-  setTimeout(() => showOrderModal(order), 100);
+  if (firstOrder) setTimeout(() => showOrderModal(firstOrder), 100);
 }
 
 // ═══════════════════════════════════════
@@ -1841,20 +1974,22 @@ function editOrder(id) {
   const order = S.orders.find(o => o.id === id);
   if (!order) return;
   S.editingId = id;
+  const slots = makeDraftSlots();
+  const st = order.servingTime;
+  if (slots[st]) {
+    slots[st].orderTime = { h: order.orderTime.split(':')[0], m: order.orderTime.split(':')[1] };
+    slots[st].items = order.items.map(i => ({...i}));
+  }
   S.draft = {
     room: order.room,
     pax: order.pax || 1,
     date: order.date,
-    servingTime: order.servingTime,
-    orderTime: { h: order.orderTime.split(':')[0], m: order.orderTime.split(':')[1] },
-    items: order.items.map(i => ({...i})),
+    activeTab: st,
+    slots,
   };
-  // Restore wizard mealPeriod from servingTime (Breakfast/Lunch/Dinner)
-  const mp = ['Breakfast','Lunch','Dinner'].includes(order.servingTime) ? order.servingTime : null;
   S.wizard = {
-    mealPeriod: mp,
-    week: mp === 'Breakfast' ? 'All Weeks' : null,
-    day:  mp === 'Breakfast' ? 'Daily'     : null,
+    week: (st === 'Breakfast') ? 'All Weeks' : null,
+    day:  (st === 'Breakfast') ? 'Daily'     : null,
   };
   switchView('create');
 }
