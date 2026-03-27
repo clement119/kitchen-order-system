@@ -184,6 +184,11 @@
       gap: 10px;
       margin-bottom: 8px;
     }
+    .room-header-actions {
+      display: flex;
+      gap: 5px;
+      margin-left: auto;
+    }
     .meal-label {
       font-size: 12px;
       font-weight: 800;
@@ -1117,6 +1122,7 @@ const S = {
   menuItems: [],          // new format: [{mealPeriod,week,day,dish,l1,l2}]
   orders: [],             // [{id, room, pax, date, servingTime, orderTime, items[{name,choice1,choice2,note}]}]
   editingId: null,
+  editingRoom: null,   // { room, date, originalIds[] } when editing all slots for a room
 
   // draft (create view)
   draft: {
@@ -1244,7 +1250,7 @@ function startClock() {
 // ═══════════════════════════════════════
 function switchView(v) {
   // Reset draft when going to create without editing
-  if (v === 'create' && !S.editingId) resetDraft();
+  if (v === 'create' && !S.editingId && !S.editingRoom) resetDraft();
   S.view = v;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   renderContent();
@@ -1286,26 +1292,28 @@ function renderSummary(root) {
       const pax = roomOrders[0].pax || 1;
 
       // Group this room's orders by serving time (preserve SERVING_ORDER order)
+      const safeRoom = escHtml(room).replace(/'/g,"&#39;");
+      const safeDate = escHtml(date);
       let servingRowsHtml = '';
       SERVING_ORDER.forEach(mealName => {
         const o = roomOrders.find(x => x.servingTime === mealName);
         if (!o) return;
-        const itemsPreview = o.items.map(i => itemDisplayName(i)).join(', ');
+        const itemsPreview = o.items.map(i => {
+          const q = i.qty || 1;
+          return escHtml(itemDisplayName(i)) + (q > 1 ? ` <strong>×${q}</strong>` : '');
+        }).join(' &nbsp;·&nbsp; ');
         servingRowsHtml += `
           <div class="order-row" style="cursor:pointer;" onclick="viewOrder('${o.id}')">
-            <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="meal-label" style="font-size:11px;padding:2px 8px;">${escHtml(mealName)}</span>
                 <span style="font-size:11px;font-weight:700;color:var(--text-muted);">${escHtml(o.orderTime)}</span>
               </div>
-              <div class="order-items-preview" title="${escHtml(itemsPreview)}">${escHtml(itemsPreview)}</div>
+              <div class="order-items-preview">${itemsPreview}</div>
             </div>
             <div class="order-row-actions" onclick="event.stopPropagation()">
               <button class="btn-icon" title="View / Print" onclick="viewOrder('${o.id}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-              <button class="btn-icon" title="Edit" onclick="editOrder('${o.id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button class="btn-icon" title="Duplicate" onclick="duplicateOrder('${o.id}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -1322,6 +1330,16 @@ function renderSummary(root) {
           <div class="meal-block-header">
             <span class="meal-label">Room ${escHtml(room)}</span>
             <span class="meal-meta">${pax} pax</span>
+            <div class="room-header-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 9px;" title="View all orders for this room" onclick="showBulkOrderModal('${safeRoom}','${safeDate}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                View Bulk
+              </button>
+              <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 9px;" title="Edit all orders for this room" onclick="editRoomOrders('${safeRoom}','${safeDate}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+              </button>
+            </div>
           </div>
           ${servingRowsHtml}
         </div>`;
@@ -1605,7 +1623,7 @@ function renderCreate(root) {
       <!-- Right: Order Form -->
       <div id="order-form-area">
         <div class="order-form-header">
-          <div class="order-form-title">${S.editingId ? 'Edit Order' : 'New Order'}</div>
+          <div class="order-form-title">${S.editingRoom ? 'Edit Room Order' : S.editingId ? 'Edit Order' : 'New Order'}</div>
           <div class="form-grid">
             <div class="form-field">
               <label class="form-label">Room / Table Number</label>
@@ -1637,10 +1655,6 @@ function renderCreate(root) {
         <!-- Footer -->
         <div id="order-form-footer">
           <button class="btn btn-secondary" onclick="cancelOrder()">Cancel</button>
-          <button class="btn btn-secondary" onclick="saveAndPrint()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Save & Print
-          </button>
           <button class="btn btn-primary" onclick="saveOrder()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save Order
@@ -1746,6 +1760,7 @@ function resetDraft() {
     slots: makeDraftSlots(),
   };
   S.editingId = null;
+  S.editingRoom = null;
   S.wizard = { mealPeriod: null, week: null, day: null };
 }
 
@@ -1773,7 +1788,23 @@ function validateDraft() {
 function saveOrder() {
   if (!validateDraft()) return;
   const d = S.draft;
-  if (S.editingId) {
+  if (S.editingRoom) {
+    // Room-level edit: remove original orders, rebuild from slots
+    S.orders = S.orders.filter(o => !S.editingRoom.originalIds.includes(o.id));
+    SERVING_ORDER.forEach(name => {
+      const slot = d.slots[name];
+      if (slot.items.length > 0) {
+        S.orders.push({
+          id: uuid(),
+          room: d.room, pax: d.pax, date: d.date,
+          servingTime: name,
+          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
+          items: [...slot.items],
+        });
+      }
+    });
+    toast('Room orders updated.');
+  } else if (S.editingId) {
     const idx = S.orders.findIndex(o => o.id === S.editingId);
     if (idx >= 0) {
       const existing = S.orders[idx];
@@ -1808,47 +1839,6 @@ function saveOrder() {
   switchView('summary');
 }
 
-function saveAndPrint() {
-  if (!validateDraft()) return;
-  const d = S.draft;
-  let firstOrder = null;
-  if (S.editingId) {
-    const idx = S.orders.findIndex(o => o.id === S.editingId);
-    if (idx >= 0) {
-      const existing = S.orders[idx];
-      const slot = d.slots[existing.servingTime];
-      if (slot) {
-        S.orders[idx] = {
-          ...existing,
-          room: d.room, pax: d.pax, date: d.date,
-          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
-          items: [...slot.items],
-        };
-        firstOrder = S.orders[idx];
-      }
-    }
-  } else {
-    SERVING_ORDER.forEach(name => {
-      const slot = d.slots[name];
-      if (slot.items.length > 0) {
-        const order = {
-          id: uuid(),
-          room: d.room, pax: d.pax, date: d.date,
-          servingTime: name,
-          orderTime: `${slot.orderTime.h}:${slot.orderTime.m}`,
-          items: [...slot.items],
-        };
-        S.orders.push(order);
-        if (!firstOrder) firstOrder = order;
-      }
-    });
-  }
-  saveStorage();
-  resetDraft();
-  switchView('summary');
-  if (firstOrder) setTimeout(() => showOrderModal(firstOrder), 100);
-}
-
 // ═══════════════════════════════════════
 //  ORDER ACTIONS (Summary)
 // ═══════════════════════════════════════
@@ -1881,6 +1871,122 @@ function editOrder(id) {
     day:  mp === 'Breakfast' ? 'Daily'     : null,
   };
   switchView('create');
+}
+
+function editRoomOrders(room, date) {
+  const roomOrders = S.orders.filter(o => o.room === room && o.date === date);
+  if (!roomOrders.length) return;
+  S.editingId = null;
+  S.editingRoom = { room, date, originalIds: roomOrders.map(o => o.id) };
+  const slots = makeDraftSlots();
+  roomOrders.forEach(o => {
+    if (slots[o.servingTime]) {
+      slots[o.servingTime].orderTime = { h: o.orderTime.split(':')[0], m: o.orderTime.split(':')[1] };
+      slots[o.servingTime].items = o.items.map(i => ({...i}));
+    }
+  });
+  const first = roomOrders[0];
+  S.draft = {
+    room: first.room,
+    pax: first.pax || 1,
+    date: first.date,
+    activeTab: roomOrders[0].servingTime,
+    slots,
+  };
+  const st = roomOrders[0].servingTime;
+  const mp = ['Breakfast','Lunch','Dinner'].includes(st) ? st : null;
+  S.wizard = {
+    mealPeriod: mp,
+    week: mp === 'Breakfast' ? 'All Weeks' : null,
+    day:  mp === 'Breakfast' ? 'Daily'     : null,
+  };
+  switchView('create');
+}
+
+function buildBulkOrderHtml(room, date) {
+  const roomOrders = S.orders.filter(o => o.room === room && o.date === date);
+  if (!roomOrders.length) return '<p>No orders found.</p>';
+  const pax = roomOrders[0].pax || 1;
+  const now = new Date();
+  const generated = now.toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  let mealSectionsHtml = '';
+  SERVING_ORDER.forEach(mealName => {
+    const o = roomOrders.find(x => x.servingTime === mealName);
+    if (!o) return;
+    const rows = o.items.map((item, i) => {
+      const qty = item.qty || 1;
+      return `<tr>
+        <td class="ot-col-no">${i + 1}</td>
+        <td class="ot-td-item">${escHtml(itemDisplayName(item))}</td>
+        <td class="ot-col-qty ot-td-qty">${qty}</td>
+        <td class="ot-td-note">${escHtml(item.note || '—')}</td>
+      </tr>`;
+    }).join('');
+    mealSectionsHtml += `
+      <div class="ot-items-section" style="margin-top:12px;">
+        <div class="ot-items-title" style="display:flex;gap:10px;align-items:center;">
+          ${escHtml(mealName)}
+          <span style="font-size:11px;font-weight:600;color:var(--text-muted);">Serve at ${escHtml(o.orderTime)}</span>
+        </div>
+        <table class="ot-table">
+          <thead><tr><th class="ot-col-no">#</th><th>Item</th><th class="ot-col-qty">Qty</th><th>Note</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  });
+
+  return `<div class="order-template">
+    <div class="ot-head">
+      <div class="ot-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+        </svg>
+        <div>
+          <div class="ot-brand-name">Kitchen Order</div>
+          <div class="ot-brand-sub">Bulk Room Order</div>
+        </div>
+      </div>
+      <div class="ot-slip-label">Room ${escHtml(room)}</div>
+    </div>
+    <div class="ot-meta">
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Room / Table</div>
+        <div class="ot-meta-value">${escHtml(room)}</div>
+      </div>
+      <div class="ot-meta-cell">
+        <div class="ot-meta-label">Date</div>
+        <div class="ot-meta-value">${escHtml(formatDate(date))}</div>
+      </div>
+      <div class="ot-meta-cell" style="border-bottom:none;">
+        <div class="ot-meta-label">Number of Pax</div>
+        <div class="ot-meta-value">${pax} pax</div>
+      </div>
+    </div>
+    ${mealSectionsHtml}
+    <div class="ot-foot">
+      <div class="ot-generated">Generated: ${generated}</div>
+      <div class="ot-sig">Received by: _______________________</div>
+    </div>
+  </div>`;
+}
+
+function showBulkOrderModal(room, date) {
+  openModal(
+    `Bulk Order — Room ${escHtml(room)}`,
+    buildBulkOrderHtml(room, date),
+    `<button class="btn btn-primary" onclick="printBulkOrder('${escHtml(room).replace(/'/g,"&#39;")}','${date}')">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+       Download PDF
+     </button>`
+  );
+}
+
+function printBulkOrder(room, date) {
+  const slot = document.getElementById('print-slot');
+  slot.innerHTML = buildBulkOrderHtml(room, date);
+  window.print();
+  slot.innerHTML = '';
 }
 
 function duplicateOrder(id) {
