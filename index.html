@@ -2292,22 +2292,28 @@ function renderDailyReport(date) {
     const mealOrders = ordersForDate.filter(o => o.servingTime === mealName);
     if (!mealOrders.length) return;
     const totalPax = mealOrders.reduce((s,o) => s + (o.pax||1), 0);
-    const serveTimes = [...new Set(mealOrders.map(o=>o.orderTime))];
+    const serveTimes = [...new Set(mealOrders.map(o=>o.orderTime))].sort();
     lines.push(`${mealName}: (Total ${totalPax} pax)`);
     lines.push('─'.repeat(28));
     serveTimes.forEach(t => {
       const atOrders = mealOrders.filter(o => o.orderTime === t);
       lines.push(`> Serve at ${t}`);
+
+      // Combine items: key = displayName + note (so noted items stay separate)
+      const combined = {};
       atOrders.forEach(o => {
-        const pax  = o.pax || 1;
-        const itemNames = o.items.map(i => { const q = i.qty||1; return itemDisplayName(i) + (q > 1 ? ` ×${q}` : ''); }).join(', ');
-        lines.push(`* ${pax}pax - ${itemNames}`);
-        // Per-item notes (all pax share the same note in this order)
         o.items.forEach(item => {
-          if (item.note && item.note.trim()) {
-            lines.push(`         Note: ${item.note.trim()}`);
-          }
+          const displayName = itemDisplayName(item);
+          const note = (item.note || '').trim();
+          const key = displayName + '|||' + note;
+          if (!combined[key]) combined[key] = { displayName, note, qty: 0 };
+          combined[key].qty += (item.qty || 1);
         });
+      });
+
+      Object.values(combined).forEach(({ displayName, note, qty }) => {
+        const noteStr = note ? `  [${note}]` : '';
+        lines.push(`  ${qty}x ${displayName}${noteStr}`);
       });
     });
     lines.push('');
