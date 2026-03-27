@@ -1174,8 +1174,8 @@ const S = {
     slots: makeDraftSlots(),  // keyed by serving time name
   },
 
-  // wizard state (menu navigation — week/day only; mealPeriod = activeTab)
-  wizard: { week: 'All Weeks', day: 'Daily' },
+  // wizard state (menu navigation)
+  wizard: { mealPeriod: null, week: null, day: null },
 
   // drum pickers
   drums: { h: null, m: null },
@@ -1431,11 +1431,15 @@ function renderSummary(root) {
 // ═══════════════════════════════════════
 //  WIZARD SELECTION
 // ═══════════════════════════════════════
+function selectMealPeriod(mp) {
+  S.wizard.mealPeriod = mp;
+  S.wizard.week = mp === 'Breakfast' ? 'All Weeks' : null;
+  S.wizard.day  = mp === 'Breakfast' ? 'Daily'     : null;
+  renderContent();
+}
+
 function selectTab(name) {
   S.draft.activeTab = name;
-  // Breakfast-like tabs have no week/day — pre-set them
-  S.wizard.week = (name === 'Breakfast') ? 'All Weeks' : null;
-  S.wizard.day  = (name === 'Breakfast') ? 'Daily'     : null;
   renderContent();
 }
 
@@ -1536,19 +1540,65 @@ function renderCreate(root) {
   const wiz = S.wizard;
   const slot = d.slots[tab];
 
-  // --- Wizard logic (mealPeriod = active tab) ---
-  const showStep2 = tab !== 'Breakfast';
+  // --- Left panel wizard logic (driven by wiz.mealPeriod, independent of tabs) ---
+  const showStep2 = wiz.mealPeriod && wiz.mealPeriod !== 'Breakfast';
   const showStep3 = showStep2 && wiz.week;
-  const showDishes = tab === 'Breakfast' || (wiz.week && wiz.day);
+  const showDishes = wiz.mealPeriod === 'Breakfast' || (wiz.week && wiz.day);
 
-  // --- Serving tabs HTML ---
+  // --- Left panel wizard HTML (original: Step 1/2/3) ---
+  const wizardHtml = `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 1 — Meal Period</div>
+      <div class="wizard-btns">
+        ${['Breakfast','Lunch','Dinner'].map(mp =>
+          `<button class="wizard-btn${wiz.mealPeriod===mp?' active':''}" onclick="selectMealPeriod('${mp}')">${mp}</button>`
+        ).join('')}
+      </div>
+    </div>
+    ${showStep2 ? `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 2 — Week</div>
+      <div class="wizard-btns">
+        ${['Week 1','Week 2','Week 3','Week 4'].map(wk =>
+          `<button class="wizard-btn${wiz.week===wk?' active':''}" onclick="selectWizardWeek('${wk}')">${wk}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}
+    ${showStep3 ? `
+    <div class="wizard-section">
+      <div class="wizard-step-label">Step 3 — Day</div>
+      <div class="wizard-btns">
+        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day =>
+          `<button class="wizard-btn${wiz.day===day?' active':''}" onclick="selectWizardDay('${day}')">${day.slice(0,3)}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}`;
+
+  // --- Left panel dish list HTML ---
+  let dishListHtml;
+  if (!showDishes) {
+    dishListHtml = `<div class="menu-no-selection">${wiz.mealPeriod
+      ? 'Select a week and day to see dishes.'
+      : 'Select a meal period above to begin.'}</div>`;
+  } else if (S.menuItems.length === 0) {
+    dishListHtml = `<div class="menu-no-selection">Upload <strong>Full_Menu_Consolidated.xlsx</strong> via the Upload Menu button to load the menu.</div>`;
+  } else {
+    const filtered = S.menuItems.filter(r =>
+      r.mealPeriod === wiz.mealPeriod && r.week === wiz.week && r.day === wiz.day
+    );
+    dishListHtml = filtered.length
+      ? buildDishGroupsHtml(buildDishGroups(filtered))
+      : `<div class="menu-no-selection">No dishes found for this selection.</div>`;
+  }
+
+  // --- Right panel: serving tabs ---
   const tabsHtml = SERVING_ORDER.map(name => {
     const count = d.slots[name].items.length;
     const badge = count > 0 ? `<span class="tab-badge">${count}</span>` : '';
     return `<button class="serving-tab-btn${tab===name?' active':''}" onclick="selectTab('${name}')">${escHtml(name)}${badge}</button>`;
   }).join('');
 
-  // --- Order time (for active tab) ---
+  // --- Right panel: order time for active tab ---
   const slotTime = slot.orderTime;
   const timeRowHtml = `
     <div class="slot-time-row">
@@ -1569,45 +1619,7 @@ function renderCreate(root) {
       <span id="time-display">${slotTime.h}:${slotTime.m}</span>
     </div>`;
 
-  // --- Wizard HTML (steps 2 & 3 only) ---
-  const wizardHtml = `
-    ${showStep2 ? `
-    <div class="wizard-section">
-      <div class="wizard-step-label">Week</div>
-      <div class="wizard-btns">
-        ${['Week 1','Week 2','Week 3','Week 4'].map(wk =>
-          `<button class="wizard-btn${wiz.week===wk?' active':''}" onclick="selectWizardWeek('${wk}')">${wk}</button>`
-        ).join('')}
-      </div>
-    </div>` : ''}
-    ${showStep3 ? `
-    <div class="wizard-section">
-      <div class="wizard-step-label">Day</div>
-      <div class="wizard-btns">
-        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day =>
-          `<button class="wizard-btn${wiz.day===day?' active':''}" onclick="selectWizardDay('${day}')">${day.slice(0,3)}</button>`
-        ).join('')}
-      </div>
-    </div>` : ''}`;
-
-  // --- Dish list HTML ---
-  let dishListHtml;
-  if (!showDishes) {
-    dishListHtml = `<div class="menu-no-selection">Select a week and day to see dishes.</div>`;
-  } else if (S.menuItems.length === 0) {
-    dishListHtml = `<div class="menu-no-selection">Upload <strong>Full_Menu_Consolidated.xlsx</strong> via the Upload Menu button to load the menu.</div>`;
-  } else {
-    const wk  = tab === 'Breakfast' ? 'All Weeks' : wiz.week;
-    const day = tab === 'Breakfast' ? 'Daily'     : wiz.day;
-    const filtered = S.menuItems.filter(r =>
-      r.mealPeriod === tab && r.week === wk && r.day === day
-    );
-    dishListHtml = filtered.length
-      ? buildDishGroupsHtml(buildDishGroups(filtered))
-      : `<div class="menu-no-selection">No dishes found for this selection.</div>`;
-  }
-
-  // --- Order items list (active slot) ---
+  // --- Right panel: order items list (active slot) ---
   const activeItems = slot.items;
   const orderItemsHtml = activeItems.length === 0
     ? `<div class="drop-empty">
@@ -1642,13 +1654,11 @@ function renderCreate(root) {
 
   root.innerHTML = `
     <div id="create-view">
-      <!-- Left: Menu Panel -->
+      <!-- Left: Menu Panel (unchanged wizard) -->
       <div id="menu-panel">
         <div class="menu-panel-header">
           <div class="menu-panel-title">Menu</div>
         </div>
-        <div class="serving-tabs">${tabsHtml}</div>
-        ${timeRowHtml}
         ${wizardHtml}
         <div id="menu-items-list">${dishListHtml}</div>
       </div>
@@ -1674,6 +1684,10 @@ function renderCreate(root) {
             </div>
           </div>
         </div>
+
+        <!-- Serving time tabs + order time -->
+        <div class="serving-tabs">${tabsHtml}</div>
+        ${timeRowHtml}
 
         <!-- Drop zone -->
         <div id="drop-zone-wrap">
@@ -1859,7 +1873,7 @@ function resetDraft() {
     slots: makeDraftSlots(),
   };
   S.editingId = null;
-  S.wizard = { week: 'All Weeks', day: 'Daily' };
+  S.wizard = { mealPeriod: null, week: null, day: null };
 }
 
 function newOrder() {
@@ -1987,9 +2001,11 @@ function editOrder(id) {
     activeTab: st,
     slots,
   };
+  const mp = ['Breakfast','Lunch','Dinner'].includes(st) ? st : null;
   S.wizard = {
-    week: (st === 'Breakfast') ? 'All Weeks' : null,
-    day:  (st === 'Breakfast') ? 'Daily'     : null,
+    mealPeriod: mp,
+    week: mp === 'Breakfast' ? 'All Weeks' : null,
+    day:  mp === 'Breakfast' ? 'Daily'     : null,
   };
   switchView('create');
 }
