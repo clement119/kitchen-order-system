@@ -2151,11 +2151,11 @@ function showGuide() {
           <div class="guide-step-num">1</div>
           <div class="guide-step-body">
             <div class="guide-step-title">Upload the menu file</div>
-            <div class="guide-step-desc">In the <strong>Summary</strong> view, click <code>Upload Menu</code> and select <code>Full_Menu_Consolidated.xlsx</code>. The menu is cached in the browser — you only need to do this once.</div>
+            <div class="guide-step-desc">In the <strong>Summary</strong> view, click <code>Upload Menu</code> and select <code>Full_Menu_Consolidated.xlsx</code>. The menu is saved in the browser — you only need to do this once.</div>
           </div>
         </div>
       </div>
-      <div class="guide-tip"><strong>Tip:</strong> If the menu changes, simply upload the new file again to refresh it.</div>
+      <div class="guide-tip"><strong>Tip:</strong> If the menu changes, upload the new file again to refresh it.</div>
     </div>
 
     <div class="guide-section">
@@ -2165,52 +2165,60 @@ function showGuide() {
           <div class="guide-step-num">1</div>
           <div class="guide-step-body">
             <div class="guide-step-title">Open the order form</div>
-            <div class="guide-step-desc">Click the <strong>+ Order</strong> button in the left sidebar to start a new order.</div>
+            <div class="guide-step-desc">Click <code>Create Order</code> in the Summary view (or the <strong>+ Order</strong> icon in the sidebar) to start a new order.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">2</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Select Meal Period</div>
-            <div class="guide-step-desc">Choose <code>Breakfast</code>, <code>Lunch</code>, or <code>Dinner</code>. Selecting Breakfast shows dishes immediately. Lunch and Dinner proceed to the next steps. The Serving Time field is auto-set.</div>
+            <div class="guide-step-title">Fill in room details</div>
+            <div class="guide-step-desc">On the right panel, enter the <strong>Room / Table Number</strong>, <strong>Number of Pax</strong>, and <strong>Date</strong>.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">3</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Select Week &amp; Day <span style="font-weight:600;color:var(--text-muted)">(Lunch / Dinner only)</span></div>
-            <div class="guide-step-desc">Pick the menu week (<code>Week 1</code>–<code>Week 4</code>) then the day of the week. Dishes for that session will appear below.</div>
+            <div class="guide-step-title">Pick a serving time tab</div>
+            <div class="guide-step-desc">Below the date, choose a tab — <code>Breakfast</code>, <code>Brunch</code>, <code>Lunch</code>, <code>Tea Time</code>, <code>Dinner</code>, <code>Supper</code>, or <code>Other</code>. Each tab keeps its own items and serve time independently. A badge on the tab shows how many items have been added.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Add dishes to the order</div>
-            <div class="guide-step-desc">Click a dish pill to add it. For dishes with options, select the choice (e.g. Chicken, Fish). Each click adds a <strong>new entry</strong> — useful when the same dish needs different notes for different patients. The pill shows how many entries exist.</div>
+            <div class="guide-step-title">Set the serve time</div>
+            <div class="guide-step-desc">Adjust the <strong>Serve Time</strong> field (defaults: Breakfast 07:30, Brunch 10:00, Lunch 11:30, Tea Time 15:00, Dinner 18:30, Supper 21:30). Each tab has its own time.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Adjust quantity &amp; add notes</div>
-            <div class="guide-step-desc">Use the <code>−</code> / <code>+</code> controls on each item to set quantity. Type a note (e.g. <em>no salt, extra portion</em>) in the note field below each item. Drag the handle on the left to reorder items.</div>
+            <div class="guide-step-title">Browse the menu (left panel)</div>
+            <div class="guide-step-desc">Select the <strong>Meal Period</strong> (Step 1). For Lunch and Dinner, also pick the <strong>Week</strong> and <strong>Day</strong> (Steps 2 &amp; 3). Dishes for that selection will appear below.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">6</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Fill in order details</div>
-            <div class="guide-step-desc">Enter <strong>Room / Table Number</strong>, <strong>Number of Pax</strong> (patients sharing this order), and <strong>Date</strong>. Then pick a serving time tab and set the <strong>Serve Time</strong> using the time input.</div>
+            <div class="guide-step-title">Add dishes</div>
+            <div class="guide-step-desc">Click a dish pill to add it to the active serving-time tab. For dishes with options, select the choice (e.g. Chicken, Fish). The pill turns highlighted and shows how many have been added. Switch tabs at any time to add dishes for a different meal.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">7</div>
           <div class="guide-step-body">
+            <div class="guide-step-title">Adjust quantity &amp; notes</div>
+            <div class="guide-step-desc">Use <code>−</code> / <code>+</code> on each item to set quantity. Add a note (e.g. <em>no salt, less oil</em>) in the field below each item. Drag the handle on the left to reorder.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">8</div>
+          <div class="guide-step-body">
             <div class="guide-step-title">Save the order</div>
-            <div class="guide-step-desc">Click <code>Save Order</code> to store it, or <code>Save &amp; Print</code> to store and immediately open the print slip.</div>
+            <div class="guide-step-desc">Click <code>Save Order</code>. One order is created per populated tab — so a room with Breakfast and Dinner items will save two separate orders, both visible together in the Summary.</div>
           </div>
         </div>
       </div>
+      <div class="guide-tip"><strong>Tip:</strong> You can add items across multiple tabs before saving. Use the tab badges to check which meals have items.</div>
     </div>
 
     <div class="guide-section">
@@ -2219,19 +2227,40 @@ function showGuide() {
         <div class="guide-step">
           <div class="guide-step-num">1</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">View an order slip</div>
-            <div class="guide-step-desc">Click anywhere on an order row in the Summary to open the formatted order slip. Click <code>Download PDF</code> to print or save as PDF.</div>
+            <div class="guide-step-title">Summary layout</div>
+            <div class="guide-step-desc">Orders are grouped by <strong>Date → Room</strong>. Each room shows its serving times with the serve time and item list (including quantities) for each.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">2</div>
           <div class="guide-step-body">
-            <div class="guide-step-title">Edit, duplicate, or delete</div>
-            <div class="guide-step-desc">Use the action icons on the right of each row — <strong>pencil</strong> to edit, <strong>copy</strong> to duplicate (useful for similar rooms), <strong>bin</strong> to delete.</div>
+            <div class="guide-step-title">View a single serving-time slip</div>
+            <div class="guide-step-desc">Click the <strong>eye</strong> icon on any serving-time row to open the formatted order slip. Click <code>Download PDF</code> to print or save as PDF.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">View Bulk Order for a room</div>
+            <div class="guide-step-desc">Click <code>View Bulk</code> in the room header to see all serving times for that room in one combined slip — with item quantities and notes per meal. Click <code>Download PDF</code> to save the full room order.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">4</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Edit a room's orders</div>
+            <div class="guide-step-desc">Click <code>Edit</code> in the room header to open all serving-time slots for that room at once. Switch between tabs to modify each meal, then click <code>Save Order</code>. Tabs with no items are removed.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">5</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Duplicate or delete a serving time</div>
+            <div class="guide-step-desc">Use the <strong>copy</strong> icon to duplicate a single serving-time order (useful for similar rooms), or the <strong>bin</strong> icon to delete it.</div>
           </div>
         </div>
       </div>
-      <div class="guide-tip"><strong>Tip:</strong> Use <strong>Duplicate</strong> to quickly create a similar order for another room, then edit just the room number and any item differences.</div>
+      <div class="guide-tip"><strong>Tip:</strong> Use <strong>Duplicate</strong> on a serving-time row then edit the room number to quickly clone an order for another patient.</div>
     </div>
 
     <div class="guide-section">
@@ -2241,14 +2270,21 @@ function showGuide() {
           <div class="guide-step-num">1</div>
           <div class="guide-step-body">
             <div class="guide-step-title">Daily Kitchen Report</div>
-            <div class="guide-step-desc">Click <code>Daily Report</code> at the top of the Summary to generate a full-day report grouped by meal (Breakfast, Lunch, Dinner…) and serve time. Copy or print it to hand to the kitchen.</div>
+            <div class="guide-step-desc">Click <code>Generate Daily Report</code> at the bottom of the Summary. The report groups items by meal and serve time — identical dishes are combined into a single line with their total quantity. Items with different notes remain separate lines (e.g. <em>2x Roti Canai [less oil]</em> and <em>4x Roti Canai</em>). Copy or print to hand to the kitchen.</div>
           </div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">2</div>
           <div class="guide-step-body">
             <div class="guide-step-title">Single order slip</div>
-            <div class="guide-step-desc">Click any order row → <code>Download PDF</code>. In the print dialog, set the destination to <strong>Save as PDF</strong> to download a PDF file of the order slip.</div>
+            <div class="guide-step-desc">Click the <strong>eye</strong> icon on any row → <code>Download PDF</code>. In the print dialog, choose <strong>Save as PDF</strong> as the destination.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-body">
+            <div class="guide-step-title">Bulk room order PDF</div>
+            <div class="guide-step-desc">Click <code>View Bulk</code> on any room header → <code>Download PDF</code> to print a single sheet with all meals for that room.</div>
           </div>
         </div>
       </div>
