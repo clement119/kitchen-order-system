@@ -464,61 +464,21 @@
     .form-time-block { flex: 1; }
     .form-date-block { flex: 1; }
 
-    /* Drum picker */
-    .drum-picker-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .drum-col-wrap { display: flex; flex-direction: column; align-items: center; gap: 0; }
-    .drum-arrow-btn {
-      width: 36px; height: 22px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
+    /* ─── Serve Time input ─── */
+    .time-input {
+      padding: 5px 8px;
+      border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-muted);
-      transition: all 0.15s;
-      font-size: 11px;
-    }
-    .drum-arrow-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-    .drum-viewport {
-      width: 52px;
-      height: 108px;
-      overflow-y: scroll;
-      scroll-snap-type: y mandatory;
-      scrollbar-width: none;
-      border: 2px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--surface2);
-      position: relative;
-    }
-    .drum-viewport::-webkit-scrollbar { display: none; }
-    .drum-pad { height: 36px; flex-shrink: 0; }
-    .drum-item {
-      height: 36px;
-      display: flex; align-items: center; justify-content: center;
-      scroll-snap-align: center;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
-      color: var(--text-light);
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
       cursor: pointer;
-      transition: color 0.1s, font-size 0.1s;
-      user-select: none;
+      width: 116px;
     }
-    .drum-item.active {
-      color: var(--accent);
-      font-size: 20px;
-    }
-    .drum-item:hover { color: var(--accent-dark); }
-    .drum-sep {
-      font-size: 22px;
-      font-weight: 800;
-      color: var(--accent);
-      line-height: 1;
-      margin-top: 22px;
-    }
+    .time-input:focus { border-color: var(--accent); }
 
     /* Drop zone */
     #drop-zone-wrap {
@@ -896,12 +856,12 @@
       color: #fff;
     }
 
-    /* ─── Slot Order Time row (inside left panel) ─── */
+    /* ─── Serve Time row (right panel, per tab) ─── */
     .slot-time-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 14px;
+      padding: 6px 14px;
       border-bottom: 1px solid var(--border2);
       flex-shrink: 0;
       background: var(--surface2);
@@ -913,12 +873,6 @@
       letter-spacing: 0.07em;
       color: var(--text-muted);
       white-space: nowrap;
-    }
-    #time-display {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--accent);
-      min-width: 44px;
     }
 
     /* ─── Wizard Steps ─── */
@@ -1144,7 +1098,6 @@ const SLOT_DEFAULTS = {
   'Other':     { h: '00', m: '00' },
 };
 const STORAGE_KEY   = 'kitchen_order_app_v1';
-const ITEM_H        = 36; // drum item height px
 const TEMPLATE_FILE = 'menu-template.xlsx';
 
 function makeDraftSlots() {
@@ -1176,9 +1129,6 @@ const S = {
 
   // wizard state (menu navigation)
   wizard: { mealPeriod: null, week: null, day: null },
-
-  // drum pickers
-  drums: { h: null, m: null },
 
   // sortable instances
   sortOrderList: null,
@@ -1598,25 +1548,14 @@ function renderCreate(root) {
     return `<button class="serving-tab-btn${tab===name?' active':''}" onclick="selectTab('${name}')">${escHtml(name)}${badge}</button>`;
   }).join('');
 
-  // --- Right panel: order time for active tab ---
+  // --- Right panel: serve time for active tab ---
   const slotTime = slot.orderTime;
   const timeRowHtml = `
     <div class="slot-time-row">
-      <span class="slot-time-label">Order Time</span>
-      <div class="drum-picker-wrap">
-        <div class="drum-col-wrap">
-          <button class="drum-arrow-btn" onclick="drumStep('h',-1)">▲</button>
-          <div class="drum-viewport" id="drum-h"></div>
-          <button class="drum-arrow-btn" onclick="drumStep('h',1)">▼</button>
-        </div>
-        <div class="drum-sep">:</div>
-        <div class="drum-col-wrap">
-          <button class="drum-arrow-btn" onclick="drumStep('m',-1)">▲</button>
-          <div class="drum-viewport" id="drum-m"></div>
-          <button class="drum-arrow-btn" onclick="drumStep('m',1)">▼</button>
-        </div>
-      </div>
-      <span id="time-display">${slotTime.h}:${slotTime.m}</span>
+      <span class="slot-time-label">Serve Time</span>
+      <input type="time" class="time-input"
+        value="${slotTime.h}:${slotTime.m}"
+        onchange="updateSlotTime(this.value)" />
     </div>`;
 
   // --- Right panel: order items list (active slot) ---
@@ -1721,10 +1660,6 @@ function renderCreate(root) {
     }
   });
 
-  // Initialise drum pickers for active slot
-  initDrum('h', Array.from({length:24},(_,i)=>String(i).padStart(2,'0')), slotTime.h);
-  initDrum('m', Array.from({length:60},(_,i)=>String(i).padStart(2,'0')), slotTime.m);
-
   // Initialise SortableJS (order list only)
   initSortable();
 
@@ -1733,74 +1668,12 @@ function renderCreate(root) {
 }
 
 // ═══════════════════════════════════════
-//  DRUM PICKER
+//  SERVE TIME INPUT
 // ═══════════════════════════════════════
-function initDrum(key, values, initial) {
-  const vp = document.getElementById(`drum-${key}`);
-  if (!vp) return;
-  const idx = Math.max(0, values.indexOf(initial));
-
-  // Build items with padding
-  vp.innerHTML =
-    `<div class="drum-pad"></div>` +
-    values.map((v,i) => `<div class="drum-item${i===idx?' active':''}" data-val="${v}">${v}</div>`).join('') +
-    `<div class="drum-pad"></div>`;
-
-  // Scroll to initial
-  vp.scrollTop = idx * ITEM_H;
-
-  let scrollTimer;
-  vp.addEventListener('scroll', () => {
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      const selIdx = Math.round(vp.scrollTop / ITEM_H);
-      const clamped = Math.max(0, Math.min(values.length-1, selIdx));
-      vp.scrollTop = clamped * ITEM_H;
-      vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===clamped));
-      S.draft.slots[S.draft.activeTab].orderTime[key] = values[clamped];
-      updateTimeDisplay();
-    }, 80);
-  });
-
-  // Click item to select
-  vp.addEventListener('click', e => {
-    const item = e.target.closest('.drum-item');
-    if (!item) return;
-    const clickIdx = Array.from(vp.querySelectorAll('.drum-item')).indexOf(item);
-    vp.scrollTo({ top: clickIdx * ITEM_H, behavior: 'smooth' });
-  });
-
-  // Mouse wheel
-  vp.addEventListener('wheel', e => {
-    e.preventDefault();
-    const dir = e.deltaY > 0 ? 1 : -1;
-    const cur = Math.round(vp.scrollTop / ITEM_H);
-    const next = Math.max(0, Math.min(values.length-1, cur+dir));
-    vp.scrollTo({ top: next * ITEM_H, behavior: 'smooth' });
-  }, { passive: false });
-
-  S.drums[key] = { vp, values };
-}
-
-function drumStep(key, dir) {
-  const drum = S.drums[key];
-  if (!drum) return;
-  const { vp, values } = drum;
-  const cur  = Math.round(vp.scrollTop / ITEM_H);
-  const next = Math.max(0, Math.min(values.length-1, cur+dir));
-  vp.scrollTo({ top: next * ITEM_H, behavior: 'smooth' });
-  setTimeout(() => {
-    vp.querySelectorAll('.drum-item').forEach((el,i) => el.classList.toggle('active', i===next));
-    S.draft.slots[S.draft.activeTab].orderTime[key] = values[next];
-    updateTimeDisplay();
-  }, 100);
-}
-
-function updateTimeDisplay() {
-  const el = document.getElementById('time-display');
-  if (!el) return;
-  const t = S.draft.slots[S.draft.activeTab].orderTime;
-  el.textContent = `${t.h}:${t.m}`;
+function updateSlotTime(val) {
+  if (!val) return;
+  const [h, m] = val.split(':');
+  S.draft.slots[S.draft.activeTab].orderTime = { h, m };
 }
 
 // ═══════════════════════════════════════
@@ -2053,7 +1926,7 @@ function buildSingleOrderText(order) {
     `Room / Table : ${order.room}`,
     `Date         : ${formatDate(order.date)}`,
     `Serving      : ${order.servingTime}`,
-    `Order Time   : ${order.orderTime}`,
+    `Serve Time   : ${order.orderTime}`,
     `Pax          : ${order.pax || 1}`,
     `${'─'.repeat(36)}`,
   ];
@@ -2108,7 +1981,7 @@ function buildOrderTemplateHtml(order) {
         <div class="ot-meta-value">${escHtml(order.servingTime)}</div>
       </div>
       <div class="ot-meta-cell">
-        <div class="ot-meta-label">Order Time</div>
+        <div class="ot-meta-label">Serve Time</div>
         <div class="ot-meta-value">${escHtml(order.orderTime)}</div>
       </div>
       <div class="ot-meta-cell" style="grid-column:1/-1;border-bottom:none;">
@@ -2221,7 +2094,7 @@ function showGuide() {
           <div class="guide-step-num">6</div>
           <div class="guide-step-body">
             <div class="guide-step-title">Fill in order details</div>
-            <div class="guide-step-desc">Enter <strong>Room / Table Number</strong>, <strong>Number of Pax</strong> (patients sharing this order), <strong>Date</strong>, <strong>Serving Time</strong>, and <strong>Order Time</strong> using the drum scroll picker.</div>
+            <div class="guide-step-desc">Enter <strong>Room / Table Number</strong>, <strong>Number of Pax</strong> (patients sharing this order), and <strong>Date</strong>. Then pick a serving time tab and set the <strong>Serve Time</strong> using the time input.</div>
           </div>
         </div>
         <div class="guide-step">
